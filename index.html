@@ -102,7 +102,8 @@ img.prev{width:100%;border:1px solid #ccd8d0;border-radius:8px;margin-top:8px}
  <div class="btm"><button id="liveClose">✕ Đóng</button><button id="liveShot" class="main">📸 Chụp ngay</button><button id="liveTorch" class="hide">🔦 Đèn</button></div>
 </div>
 <div id="man" class="hide">
- <div class="mhead">✋ <b>Đặt 4 góc:</b> kéo 4 dấu tròn vào <b>giữa 4 ô vuông đen ở 4 góc phiếu</b> — 1 trên-trái · 2 trên-phải · 3 dưới-trái · 4 dưới-phải (theo chiều chữ đọc xuôi).</div>
+ <div class="mhead">✋ <b>Đặt 4 góc:</b> kéo 4 dấu tròn vào <b>giữa 4 ô vuông đen ở 4 góc phiếu</b> — 1 trên-trái · 2 trên-phải · 3 dưới-trái · 4 dưới-phải (theo chiều chữ đọc xuôi).<br><span style="color:#9fd3ff">Khung xanh dương</span> = vùng máy đọc, <span style="color:#7dff9a">vòng xanh lá</span> = ô máy thấy ĐÃ TÔ, <span style="color:#ffb547">cam</span> = tô mờ. Chỉnh đến khi vòng xanh lá nằm đúng các ô đã tô.
+ <div style="display:flex;align-items:center;gap:8px;margin-top:4px">Độ nhạy: <input type="range" id="manTh" min="0.18" max="0.55" step="0.01" value="0.35" style="flex:1"><span id="manThV">0.35</span><label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="manOv" checked> Hiện vùng đọc</label></div></div>
  <div class="mwrap"><canvas id="manCv"></canvas><canvas id="manLoupe" width="150" height="150"></canvas></div>
  <div class="mbtn"><button id="manRot">⟳ Xoay 90°</button><button id="manFlip">↻ Lật 180°</button><button id="manReset">🎯 Tự dò lại</button><button id="manCancel">✕ Huỷ</button><button class="main" id="manOk" style="min-width:100%">✔ CHẤM THEO 4 GÓC NÀY</button></div>
 </div>
@@ -575,18 +576,29 @@ function bindKho(sh){const b=$('btnToKho');if(!b)return;b.onclick=async()=>{b.di
 function cornerDefs(){const P=S.prep.profile,pw=+P.page.widthPx||1656,ph=+P.page.heightPx||2339;
  const m=(P.zones||[]).filter(z=>z.type==='MARKER').map(z=>({x:(+z.x+ +z.w/2)*pw,y:(+z.y+ +z.h/2)*ph}));if(m.length<4)return null;
  const pk=f=>m.reduce((a,b)=>!a||f(b,a)?b:a,null);return[pk((a,b)=>a.x+a.y<b.x+b.y),pk((a,b)=>-a.x+a.y<-b.x+b.y),pk((a,b)=>a.x-a.y<b.x-b.y),pk((a,b)=>a.x+a.y>b.x+b.y)];}
-const M={src:null,pts:null,drag:-1,sh:null,fromLive:false};
+const M={src:null,pts:null,drag:-1,sh:null,fromLive:false,work:null,ov:null};
 function manGuess(){const D=cornerDefs(),src=M.src;if(!D)return;
  let A=globalAlign(normalizeLight(src));if(!A.ok)A=globalAlign(src);
- if(A.ok){if(A.ori===180){M.src=rotateCv(src,180);return manGuess();}M.pts=D.map(p=>applyH(A.Hps,p.x,p.y));return true;}
+ if(A.ok){if(A.ori===180){M.src=rotateCv(src,180);M.work=null;return manGuess();}M.pts=D.map(p=>applyH(A.Hps,p.x,p.y));return true;}
  const W=src.width,H=src.height;M.pts=[{x:W*.12,y:H*.1},{x:W*.88,y:H*.1},{x:W*.12,y:H*.9},{x:W*.88,y:H*.9}];return false;}
 function openManual(sh,fromLive){const src=sh.base||sh.cvUsed;if(!src){alert('Không có ảnh để đặt góc. Hãy chụp lại.');return;}
  M.sh=sh;M.fromLive=!!fromLive;const sc=Math.min(1,1600/Math.max(src.width,src.height));const c=document.createElement('canvas');c.width=Math.round(src.width*sc);c.height=Math.round(src.height*sc);c.getContext('2d').drawImage(src,0,0,c.width,c.height);
- M.src=c;show('man',true);manGuess();manDraw();}
+ M.src=c;M.work=null;M.ov=null;show('man',true);manGuess();manDecode();}
 function manDraw(){const cv=$('manCv'),src=M.src;cv.width=src.width;cv.height=src.height;const g=cv.getContext('2d');g.drawImage(src,0,0);
- const u=src.width/600,p=M.pts;g.lineWidth=3*u;g.strokeStyle='#2ee66b';g.beginPath();[0,1,3,2].forEach((i,k)=>k?g.lineTo(p[i].x,p[i].y):g.moveTo(p[i].x,p[i].y));g.closePath();g.stroke();
+ const u=src.width/600,p=M.pts;
+ if($('manOv').checked){let A=null;try{A=(M.drag>=0||!M.A)?manA():M.A;}catch(e){}
+  if(A){const P=S.prep.profile;g.lineWidth=1.6*u;g.strokeStyle='rgba(60,150,255,.9)';
+   (P.zones||[]).forEach(z=>{const c=[[+z.x,+z.y],[+z.x+ +z.w,+z.y],[+z.x+ +z.w,+z.y+ +z.h],[+z.x,+z.y+ +z.h]].map(t=>applyH(A.Hps,t[0]*A.pageW,t[1]*A.pageH));g.beginPath();c.forEach((t,i)=>i?g.lineTo(t.x,t.y):g.moveTo(t.x,t.y));g.closePath();
+    if(z.type==='MARKER'){g.fillStyle='rgba(60,150,255,.35)';g.fill();}g.stroke();});
+   if(M.drag<0&&M.ov)M.ov.forEach(o=>{g.beginPath();g.arc(o.x,o.y,Math.max(3,o.rx*1.5),0,Math.PI*2);g.lineWidth=2.2*u;g.strokeStyle=o.st==='F'?'#2ee66b':'#ffb547';g.stroke();});}}
+ g.lineWidth=3*u;g.strokeStyle='#2ee66b';g.beginPath();[0,1,3,2].forEach((i,k)=>k?g.lineTo(p[i].x,p[i].y):g.moveTo(p[i].x,p[i].y));g.closePath();g.stroke();
  p.forEach((q,i)=>{g.beginPath();g.arc(q.x,q.y,14*u,0,Math.PI*2);g.lineWidth=3*u;g.strokeStyle=i===M.drag?'#ffd24d':'#ff3b3b';g.stroke();g.beginPath();g.moveTo(q.x-22*u,q.y);g.lineTo(q.x+22*u,q.y);g.moveTo(q.x,q.y-22*u);g.lineTo(q.x,q.y+22*u);g.lineWidth=1.5*u;g.stroke();
   g.fillStyle='#ff3b3b';g.font='bold '+Math.round(20*u)+'px Arial';g.fillText(String(i+1),q.x+16*u,q.y-16*u);});}
+function manA(){const D=cornerDefs(),P=S.prep.profile,pageW=+P.page.widthPx||1656,pageH=+P.page.heightPx||2339;
+ if(!M.work)M.work=normalizeLight(M.src);const W=M.work.width,H=M.work.height;if(!M.im||M.imFor!==M.work){M.im=M.work.getContext('2d',{willReadFrequently:true}).getImageData(0,0,W,H);M.imFor=M.work;}
+ const Hps=homography(D,M.pts),dd=(p,q)=>Math.hypot(p.x-q.x,p.y-q.y);
+ return{ok:true,im:M.im,W,H,Hps,pageW,pageH,sX:dd(M.pts[0],M.pts[1])/Math.max(1,dd(D[0],D[1])),sY:dd(M.pts[0],M.pts[2])/Math.max(1,dd(D[0],D[2]))};}
+function manDecode(){try{const A=manA(),ov=[];decodeAll(A,ov);M.ov=ov;M.A=A;}catch(e){M.ov=null;M.A=null;}manDraw();}
 function manLoupe(q){const L=$('manLoupe'),g=L.getContext('2d'),r=40*M.src.width/600;L.style.display='block';
  const cv=$('manCv'),rc=cv.getBoundingClientRect(),wr=cv.parentNode.getBoundingClientRect();const sx=(q.x/M.src.width)*rc.width+rc.left-wr.left;L.style.left=(sx<wr.width/2?(wr.width-160):8)+'px';
  g.fillStyle='#000';g.fillRect(0,0,150,150);g.drawImage(M.src,q.x-r,q.y-r,2*r,2*r,0,0,150,150);g.strokeStyle='#ff3b3b';g.lineWidth=2;g.beginPath();g.moveTo(75,55);g.lineTo(75,95);g.moveTo(55,75);g.lineTo(95,75);g.stroke();}
@@ -595,16 +607,16 @@ function manLoupe(q){const L=$('manLoupe'),g=L.getContext('2d'),r=40*M.src.width
  cv.addEventListener('pointerdown',e=>{if(!M.pts)return;const p=pos(e),r=cv.getBoundingClientRect(),lim=48*cv.width/r.width;let b=-1,bd=1e9;M.pts.forEach((q,i)=>{const d=Math.hypot(q.x-p.x,q.y-p.y);if(d<bd){bd=d;b=i;}});
   if(bd<=lim){M.drag=b;off={x:M.pts[b].x-p.x,y:M.pts[b].y-p.y};cv.setPointerCapture(e.pointerId);e.preventDefault();manDraw();manLoupe(M.pts[b]);}});
  cv.addEventListener('pointermove',e=>{if(M.drag<0)return;const p=pos(e);M.pts[M.drag]={x:Math.max(0,Math.min(cv.width,p.x+off.x)),y:Math.max(0,Math.min(cv.height,p.y+off.y))};manDraw();manLoupe(M.pts[M.drag]);e.preventDefault();});
- const up=()=>{if(M.drag<0)return;M.drag=-1;$('manLoupe').style.display='none';manDraw();};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);})();
-$('manRot').onclick=()=>{M.src=rotateCv(M.src,90);manGuess();manDraw();};
-$('manFlip').onclick=()=>{M.src=rotateCv(M.src,180);manGuess();manDraw();};
-$('manReset').onclick=()=>{const ok=manGuess();manDraw();if(!ok)alert('Không tự dò được 4 góc — hãy kéo tay 4 dấu tròn vào 4 ô vuông đen.');};
+ const up=()=>{if(M.drag<0)return;M.drag=-1;$('manLoupe').style.display='none';manDecode();};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);})();
+$('manRot').onclick=()=>{M.src=rotateCv(M.src,90);M.work=null;manGuess();manDecode();};
+$('manFlip').onclick=()=>{M.src=rotateCv(M.src,180);M.work=null;manGuess();manDecode();};
+$('manReset').onclick=()=>{const ok=manGuess();manDecode();if(!ok)alert('Không tự dò được 4 góc — hãy kéo tay 4 dấu tròn vào 4 ô vuông đen.');};
+$('manTh').oninput=()=>{S.th.fill=+$('manTh').value;S.th.faint=Math.max(.1,S.th.fill-.17);$('manThV').textContent=S.th.fill.toFixed(2);manDecode();};
+$('manOv').onchange=manDraw;
 $('manCancel').onclick=()=>{show('man',false);if(M.fromLive&&L.stream){L.paused=false;L.hold=0;L.last=null;}};
 $('manOk').onclick=async()=>{const D=cornerDefs(),P=S.prep.profile,pageW=+P.page.widthPx||1656,pageH=+P.page.heightPx||2339,src=M.src,sh=M.sh;
  const b=$('manOk');b.disabled=true;b.textContent='Đang chấm…';await tick();
- try{const work=normalizeLight(src),W=work.width,H=work.height,im=work.getContext('2d',{willReadFrequently:true}).getImageData(0,0,W,H);
-  const Hps=homography(D,M.pts),dd=(p,q)=>Math.hypot(p.x-q.x,p.y-q.y);
-  const A={ok:true,im,W,H,Hps,pageW,pageH,sX:dd(M.pts[0],M.pts[1])/Math.max(1,dd(D[0],D[1])),sY:dd(M.pts[0],M.pts[2])/Math.max(1,dd(D[0],D[2]))};
+ try{const A=manA(),work=M.work;
   const R=decodeAll(A,null);sh.cvUsed=work;sh.base=src;sh.A=A;sh.alignError='';sh.preview='';sh.anhFileId='';sh.savedOk='';sh.khoOk=false;applyRead(sh,R);sh.warn=sh.warn.concat(['Đặt 4 góc thủ công']);
   await grade(sh);show('man',false);
   if(M.fromLive&&L.stream)await showLiveRes(sh);else{renderRes();window.scrollTo(0,$('stepRes').offsetTop-60);}
