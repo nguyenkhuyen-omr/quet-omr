@@ -105,7 +105,7 @@ function esc(v){return String(v==null?'':v).replace(/[&<>"']/g,c=>({'&':'&amp;',
 function cfgGet(){try{return JSON.parse(localStorage.getItem('omrQuetCfg')||'null');}catch(e){return null;}}
 function gas(fn,...args){const c=cfgGet();if(!c||!c.url||!c.key)return Promise.reject(new Error('Chưa cài đặt kết nối.'));
  return fetch(c.url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({key:c.key,fn,args}),redirect:'follow'})
-  .then(r=>r.text()).then(t=>{let j;try{j=JSON.parse(t);}catch(e){throw new Error('Máy chủ trả về không đúng dạng — kiểm tra lại Địa chỉ Web App, và Web App phải triển khai cho "Bất kỳ ai".');}if(!j.ok)throw new Error(j.error||'Lỗi máy chủ');return j.data;});}
+  .then(r=>r.text()).then(t=>{let j;try{j=JSON.parse(t);}catch(e){throw new Error('Máy chủ trả về không đúng dạng — kiểm tra lại Địa chỉ Web App (phải là link /exec), và Web App phải triển khai cho "Bất kỳ ai".');}if(!j.ok)throw new Error(j.error||'Lỗi máy chủ');return j.data;});}
 const tick=()=>new Promise(r=>setTimeout(r,0));
 function setStatus(id,msg,cls){const e=$(id);e.textContent=msg;e.className='status '+(cls||'');}
 function stamp(){const d=new Date(),p=n=>String(n).padStart(2,'0');return d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());}
@@ -404,7 +404,17 @@ function globalAlign(cv){
   const side=Math.sqrt(ns.reduce((x,y)=>x+y,0)/4),pw=(w1+w2)/2/(Math.hypot(D[1].x-D[0].x,D[1].y-D[0].y)/pageW),ratioSide=side/(pw*mw);
   if(ratioSide<.45||ratioSide>1.8)continue;
   const r=((h1+h2)/2)/((w1+w2)/2),err=Math.abs(r/exp-1)+Math.abs(w1/w2-1)+Math.abs(h1/h2-1)+(sz-1)*.15+Math.abs(Math.log(ratioSide))*.3;
-  if(err<.45&&(!best||err<best.err))best={q,err};
+  if(err>.6)continue;
+  // Kiểm tra bằng TẤT CẢ ô vuông chuẩn của mẫu phiếu (cả ô giữa 2 mép), thử cả chiều xuôi và lộn ngược 180°
+  const tol=Math.max(4,side*1.6);
+  for(const [ori,qq] of [[0,q],[180,[q[3],q[2],q[1],q[0]]]]){
+   let Hq;try{Hq=homography(D,qq);}catch(e){continue;}
+   let hit=0;D0.forEach(m=>{const pp=applyH(Hq,m.x,m.y);if(cand.some(c=>Math.hypot(c.x-pp.x,c.y-pp.y)<=tol))hit++;});
+   const score=hit*1.0-err;
+   if(D0.length>4&&hit<Math.max(4,Math.ceil(D0.length*.6)))continue;
+   if(D0.length<=4&&err>.35)continue;
+   if(!best||score>best.score)best={q:qq,err,score,hit,ori};
+  }
  }
  if(!best)return{ok:false,error:'4 ô vuông tìm được không tạo thành khung phiếu.',cand:cand.slice(0,20),thr,exp};
  const src=best.q.map(p=>({x:p.x/k,y:p.y/k}));
@@ -413,7 +423,7 @@ function globalAlign(cv){
  const ref=src.map(p=>{const h=detectMarker(im.data,W,H,p.x,p.y,rad,rad,W*mw*3,W*mw*3,Math.max(60,thr));return h?{x:h.x,y:h.y}:p;});
  let Hps;try{Hps=homography(D,ref);}catch(e){return{ok:false,error:e.message};}
  const dd=(p,q)=>Math.hypot(p.x-q.x,p.y-q.y);
- return{ok:true,im,W,H,Hps,pageW,pageH,sX:dd(ref[0],ref[1])/Math.max(1,dd(D[0],D[1])),sY:dd(ref[0],ref[2])/Math.max(1,dd(D[0],D[2]))};
+ return{ok:true,ori:best.ori,im,W,H,Hps,pageW,pageH,sX:dd(ref[0],ref[1])/Math.max(1,dd(D[0],D[1])),sY:dd(ref[0],ref[2])/Math.max(1,dd(D[0],D[2]))};
 }
 async function readPhoto(file){return readCanvas(await renderSheet({file}));}
 async function readCanvas(base){
@@ -423,13 +433,15 @@ async function readCanvas(base){
  for(const rot of [0,180]){
   const b=rot?rotateCv(base,180):base;
   const variants=[['sáng',normalizeLight(b)],['gốc',b]];
-  for(const [nm,cv] of variants){
+  for(let [nm,cv] of variants){
    for(const k of [0,1,1.7]){
     await tick();
-    const A=k===0?globalAlign(cv):alignScaled(cv,k);
+    let A=k===0?globalAlign(cv):alignScaled(cv,k),bb=b;
     if(!A.ok){lastErr=A.error;continue;}
+    // phiếu lộn ngược -> xoay ảnh 180° cho thẳng (ảnh lưu / ảnh HS xem không bị ngược)
+    if(A.ori===180){const r=rotateCv(cv,180),A2=globalAlign(r);if(A2.ok&&A2.ori===0){cv=r;A=A2;bb=rotateCv(b,180);}}
     const R=decodeAll(A,null),q=(good(R)?1000:0)-R.warn.length;
-    if(!best||q>best.q)best={q,R,A,cv,base:b};
+    if(!best||q>best.q)best={q,R,A,cv,base:bb};
     if(good(R)&&R.warn.length<=2)return best;
     break;
    }
@@ -581,8 +593,8 @@ async function liveTick(){
  try{
   let f=frameCanvas(900);if(!f){L.busy=false;return;}
   const rot=f.width>f.height;const cv=rot?rotateCv(f,90):f;
-  let n=normalizeLight(cv),A=globalAlign(n);if(!A.ok)for(const k of [1.2,1.9]){A=alignScaled(n,k);if(A.ok)break;A=alignScaled(cv,k);if(A.ok)break;}
-  if(!A.ok){L.hold=0;L.needClear=false;drawGuide(null);liveMsg('Chưa thấy đủ 4 ô vuông đen — đưa cả tờ phiếu vào khung, đủ sáng, không che góc.');L.busy=false;return;}
+  let n=normalizeLight(cv),A=globalAlign(n);if(!A.ok)A=globalAlign(cv);  // chỉ nhận khi khớp đủ các ô vuông chuẩn của mẫu phiếu
+  if(!A.ok){L.hold=0;L.needClear=false;drawGuide(null);liveMsg('Chưa thấy <b>đủ 4 góc</b> — lùi máy ra để thấy <b>cả tờ phiếu</b> (cả mép trên và mép dưới), giữ máy song song mặt giấy, đủ sáng.');L.busy=false;return;}
   // toạ độ góc trên khung video (khung nhỏ) -> đổi về toạ độ video gốc
   const v=$('vid'),k=v.videoWidth/f.width;let pts=cornersOf(A,f.width,f.height,false);
   if(rot)pts=pts.map(p=>({x:p.y,y:f.height-p.x}));
@@ -591,7 +603,7 @@ async function liveTick(){
   if(L.needClear){if(L.donePts&&Math.max(...pts.map((p,i)=>Math.hypot(p.x-L.donePts[i].x,p.y-L.donePts[i].y)))>v.videoWidth*0.08)L.needClear=false;
    else{liveMsg('✔ Phiếu này đã xong — <b>đổi sang phiếu tiếp theo</b>…');L.busy=false;return;}}
   if(mv<v.videoWidth*0.02)L.hold++;else L.hold=1;
-  if(L.hold<2){liveMsg('Đã thấy phiếu — <b>giữ yên</b>…');L.busy=false;return;}
+  if(L.hold<3){liveMsg('Đã thấy đủ 4 góc — <b>giữ yên tay</b>… ('+L.hold+'/3)');L.busy=false;return;}
   // chụp khung hình đầy đủ và chấm
   L.paused=true;liveMsg('Đang chấm…');if(navigator.vibrate)navigator.vibrate(40);
   L.donePts=pts;const full=frameCanvas(2400);
@@ -659,6 +671,7 @@ function moCfg(msg){const c=cfgGet()||{};$('cfgUrl').value=c.url||'';$('cfgKey')
 $('cfgBtn').onclick=e=>{e.preventDefault();moCfg();};
 $('cfgClear').onclick=()=>{try{localStorage.removeItem('omrQuetCfg');}catch(e){}moCfg('Đã xoá cài đặt trên máy này.');};
 $('cfgSave').onclick=async()=>{const url=$('cfgUrl').value.trim(),key=$('cfgKey').value.trim();
+ if(/\/dev$/.test(url)){$('cfgMsg').innerHTML='<span class="bad">Đây là link /dev (chỉ dùng thử). Hãy dùng link kết thúc bằng /exec.</span>';return;}
  if(!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(url)){$('cfgMsg').innerHTML='<span class="bad">Địa chỉ phải có dạng https://script.google.com/macros/s/…/exec</span>';return;}
  if(key.length<16){$('cfgMsg').innerHTML='<span class="bad">Mã quét chưa đúng.</span>';return;}
  try{localStorage.setItem('omrQuetCfg',JSON.stringify({url,key}));}catch(e){}
