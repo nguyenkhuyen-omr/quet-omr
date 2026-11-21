@@ -410,7 +410,7 @@ function globalAlign(cv){
    if(x>0){const j=q-1;if(!seen[j]&&gr[j]<=thr){seen[j]=1;st.push(j);}}if(x<sw-1){const j=q+1;if(!seen[j]&&gr[j]<=thr){seen[j]=1;st.push(j);}}
    if(y>0){const j=q-sw;if(!seen[j]&&gr[j]<=thr){seen[j]=1;st.push(j);}}if(y<sh-1){const j=q+sw;if(!seen[j]&&gr[j]<=thr){seen[j]=1;st.push(j);}}}
   const bw=x1-x0+1,bh=y1-y0+1,fill=n/(bw*bh),side=Math.sqrt(n);
-  if(side<sw*mw*0.3||side>sw*mw*1.6)continue;if(bw/bh<.6||bw/bh>1.65||fill<.6)continue;
+  if(side<3||side>sw*Math.max(.05,mw*1.6))continue;if(bw/bh<.6||bw/bh>1.65||fill<.6)continue;
   cand.push({x:sx/n,y:sy/n,n,fill});}
  if(cand.length<4)return{ok:false,error:'Chỉ thấy '+cand.length+' ô vuông đen.',cand,thr};
  // thử các tổ hợp: lấy 4 điểm cực trị, kiểm tra tỉ lệ khung
@@ -427,8 +427,8 @@ function globalAlign(cv){
   if(Math.min(w1,w2,h1,h2)<sw*.15)continue;
   // cạnh marker so với khung: marker ~ mw * chiều rộng trang
   const side=Math.sqrt(ns.reduce((x,y)=>x+y,0)/4),pw=(w1+w2)/2/(Math.hypot(D[1].x-D[0].x,D[1].y-D[0].y)/pageW),ratioSide=side/(pw*mw);
-  if(ratioSide<.45||ratioSide>1.8)continue;
-  const r=((h1+h2)/2)/((w1+w2)/2),err=Math.abs(r/exp-1)+Math.abs(w1/w2-1)+Math.abs(h1/h2-1)+(sz-1)*.15+Math.abs(Math.log(ratioSide))*.3;
+  if(ratioSide<.12||ratioSide>2.2)continue;
+  const r=((h1+h2)/2)/((w1+w2)/2),err=Math.abs(r/exp-1)+Math.abs(w1/w2-1)+Math.abs(h1/h2-1)+(sz-1)*.15;
   if(err>.6)continue;
   // Kiểm tra bằng TẤT CẢ ô vuông chuẩn của mẫu phiếu (cả ô giữa 2 mép), thử cả chiều xuôi và lộn ngược 180°
   const tol=Math.max(4,side*1.6);
