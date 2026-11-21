@@ -192,12 +192,24 @@ function align(cv){
 function zoneGrid(z,A,overlay){
  const g=geom(z),pts=centers(z),cells=[];
  pts.forEach(p=>{let ratio=0,sx=0,sy=0,rx=0;
-  if(A&&A.ok){const q=applyH(A.Hps,p.x*A.pageW,p.y*A.pageH);sx=q.x;sy=q.y;rx=Math.max(2,p.dx*A.pageW*A.sX*.28);const ry=Math.max(2,p.dy*A.pageH*A.sY*.28);ratio=measure(A.im,A.W,A.H,sx,sy,rx,ry,S.th.gray);}
+  if(A&&A.ok){const o=(A.zoff&&A.zoff.get(z))||{x:0,y:0};const q=applyH(A.Hps,(p.x+o.x)*A.pageW,(p.y+o.y)*A.pageH);sx=q.x;sy=q.y;rx=Math.max(2,p.dx*A.pageW*A.sX*.28);const ry=Math.max(2,p.dy*A.pageH*A.sY*.28);ratio=measure(A.im,A.W,A.H,sx,sy,rx,ry,S.th.gray);}
   cells.push({r:p.r,c:p.c,ratio,x:sx,y:sy,rx});});
  const sorted=cells.map(c=>c.ratio).sort((a,b)=>a-b),base=sorted.length?sorted[Math.floor(sorted.length*.3)]:0;
  cells.forEach(c=>{c.st=(c.ratio>=S.th.fill&&c.ratio>=base+.15)?'F':(c.ratio>=S.th.faint&&c.ratio>=base+.08)?'W':'';if(overlay&&c.st)overlay.push(c);});
  return{rows:g.rows,cols:g.cols,cell:(r,c)=>cells[r*g.cols+c]||{st:'',ratio:0}};
 }
+/* Tự "hút" khung từng vùng vào đúng hàng ô (bù sai lệch nhỏ của mẫu phiếu / giấy cong khi chụp) */
+function inkAt(im,W,H,cx,cy,r,gray){const d=im.data;let dark=0,n=0;const x0=Math.max(0,Math.floor(cx-r)),x1=Math.min(W-1,Math.ceil(cx+r)),y0=Math.max(0,Math.floor(cy-r)),y1=Math.min(H-1,Math.ceil(cy+r));
+ for(let y=y0;y<=y1;y+=2)for(let x=x0;x<=x1;x+=2){const dx=x-cx,dy=y-cy;if(dx*dx+dy*dy>r*r)continue;n++;const k=(y*W+x)*4;if(.299*d[k]+.587*d[k+1]+.114*d[k+2]<gray)dark++;}return n?dark/n:0;}
+var SNAP_N=3,SNAP_STEP=.12,SNAP_GAIN=1.08,SNAP_R=.4;
+function autoSnap(A){if(!A||!A.ok)return A;A.zoff=new Map();
+ (S.prep.profile.zones||[]).forEach(z=>{if(['SBD','MA_DE','I','II','III'].indexOf(z.type)<0)return;const pts=centers(z);if(!pts.length)return;
+  const dx=pts[0].dx,dy=pts[0].dy,r=Math.max(2,Math.min(dx*A.pageW*A.sX,dy*A.pageH*A.sY)*SNAP_R);let best={s:-1,x:0,y:0},base=0;
+  for(let i=-SNAP_N;i<=SNAP_N;i++)for(let j=-SNAP_N;j<=SNAP_N;j++){const ox=i*SNAP_STEP*dx,oy=j*SNAP_STEP*dy;let sc=0;
+   for(const p of pts){const q=applyH(A.Hps,(p.x+ox)*A.pageW,(p.y+oy)*A.pageH);sc+=inkAt(A.im,A.W,A.H,q.x,q.y,r,S.th.gray);}
+   if(!i&&!j)base=sc;if(sc>best.s+1e-9||(Math.abs(sc-best.s)<1e-9&&Math.abs(i)+Math.abs(j)<Math.abs(best.i||0)+Math.abs(best.j||0)))best={s:sc,x:ox,y:oy,i,j};}
+  A.zoff.set(z,best.s>base*SNAP_GAIN?{x:best.x,y:best.y}:{x:0,y:0});});
+ return A;}
 function nQ(z){return(+z.qStart&&+z.qEnd&&+z.qEnd>=+z.qStart)?(+z.qEnd-+z.qStart+1):0;}
 
 /* ---------------- giải mã ---------------- */
@@ -439,8 +451,12 @@ function globalAlign(cv){
  return{ok:true,ori:best.ori,im,W,H,Hps,pageW,pageH,sX:dd(ref[0],ref[1])/Math.max(1,dd(D[0],D[1])),sY:dd(ref[0],ref[2])/Math.max(1,dd(D[0],D[2]))};
 }
 async function readPhoto(file){return readCanvas(await renderSheet({file}));}
+/* Nhớ chiều camera của máy này: nếu ảnh hay bị ngược thì lần sau xoay sẵn 180° */
+function flipGet(){try{return localStorage.getItem('omrFlip')==='1';}catch(e){return false;}}
+function flipToggle(){try{localStorage.setItem('omrFlip',flipGet()?'0':'1');}catch(e){}}
 async function readCanvas(base){
  if(base.width>base.height)base=rotateCv(base,90);
+ if(flipGet())base=rotateCv(base,180);
  let best=null,lastErr='';
  const good=R=>!!(S.roster[R.sbd]||matchKey(R.sbd,S.roster))&&!!(S.codes[R.maDe]||matchKey(R.maDe,S.codes));
  for(const rot of [0,180]){
@@ -452,8 +468,8 @@ async function readCanvas(base){
     let A=k===0?globalAlign(cv):alignScaled(cv,k),bb=b;
     if(!A.ok){lastErr=A.error;continue;}
     // phiếu lộn ngược -> xoay ảnh 180° cho thẳng (ảnh lưu / ảnh HS xem không bị ngược)
-    if(A.ori===180){const r=rotateCv(cv,180),A2=globalAlign(r);if(A2.ok&&A2.ori===0){cv=r;A=A2;bb=rotateCv(b,180);}}
-    const R=decodeAll(A,null),q=(good(R)?1000:0)-R.warn.length;
+    if(A.ori===180){const r=rotateCv(cv,180),A2=globalAlign(r);if(A2.ok&&A2.ori===0){cv=r;A=A2;bb=rotateCv(b,180);flipToggle();}}
+    autoSnap(A);const R=decodeAll(A,null),q=(good(R)?1000:0)-R.warn.length;
     if(!best||q>best.q)best={q,R,A,cv,base:bb};
     if(good(R)&&R.warn.length<=2)return best;
     break;
@@ -598,7 +614,7 @@ function manA(){const D=cornerDefs(),P=S.prep.profile,pageW=+P.page.widthPx||165
  if(!M.work)M.work=normalizeLight(M.src);const W=M.work.width,H=M.work.height;if(!M.im||M.imFor!==M.work){M.im=M.work.getContext('2d',{willReadFrequently:true}).getImageData(0,0,W,H);M.imFor=M.work;}
  const Hps=homography(D,M.pts),dd=(p,q)=>Math.hypot(p.x-q.x,p.y-q.y);
  return{ok:true,im:M.im,W,H,Hps,pageW,pageH,sX:dd(M.pts[0],M.pts[1])/Math.max(1,dd(D[0],D[1])),sY:dd(M.pts[0],M.pts[2])/Math.max(1,dd(D[0],D[2]))};}
-function manDecode(){try{const A=manA(),ov=[];decodeAll(A,ov);M.ov=ov;M.A=A;}catch(e){M.ov=null;M.A=null;}manDraw();}
+function manDecode(){try{const A=autoSnap(manA()),ov=[];decodeAll(A,ov);M.ov=ov;M.A=A;}catch(e){M.ov=null;M.A=null;}manDraw();}
 function manLoupe(q){const L=$('manLoupe'),g=L.getContext('2d'),r=40*M.src.width/600;L.style.display='block';
  const cv=$('manCv'),rc=cv.getBoundingClientRect(),wr=cv.parentNode.getBoundingClientRect();const sx=(q.x/M.src.width)*rc.width+rc.left-wr.left;L.style.left=(sx<wr.width/2?(wr.width-160):8)+'px';
  g.fillStyle='#000';g.fillRect(0,0,150,150);g.drawImage(M.src,q.x-r,q.y-r,2*r,2*r,0,0,150,150);g.strokeStyle='#ff3b3b';g.lineWidth=2;g.beginPath();g.moveTo(75,55);g.lineTo(75,95);g.moveTo(55,75);g.lineTo(95,75);g.stroke();}
@@ -609,14 +625,14 @@ function manLoupe(q){const L=$('manLoupe'),g=L.getContext('2d'),r=40*M.src.width
  cv.addEventListener('pointermove',e=>{if(M.drag<0)return;const p=pos(e);M.pts[M.drag]={x:Math.max(0,Math.min(cv.width,p.x+off.x)),y:Math.max(0,Math.min(cv.height,p.y+off.y))};manDraw();manLoupe(M.pts[M.drag]);e.preventDefault();});
  const up=()=>{if(M.drag<0)return;M.drag=-1;$('manLoupe').style.display='none';manDecode();};cv.addEventListener('pointerup',up);cv.addEventListener('pointercancel',up);})();
 $('manRot').onclick=()=>{M.src=rotateCv(M.src,90);M.work=null;manGuess();manDecode();};
-$('manFlip').onclick=()=>{M.src=rotateCv(M.src,180);M.work=null;manGuess();manDecode();};
+$('manFlip').onclick=()=>{flipToggle();M.src=rotateCv(M.src,180);M.work=null;manGuess();manDecode();};
 $('manReset').onclick=()=>{const ok=manGuess();manDecode();if(!ok)alert('Không tự dò được 4 góc — hãy kéo tay 4 dấu tròn vào 4 ô vuông đen.');};
 $('manTh').oninput=()=>{S.th.fill=+$('manTh').value;S.th.faint=Math.max(.1,S.th.fill-.17);$('manThV').textContent=S.th.fill.toFixed(2);manDecode();};
 $('manOv').onchange=manDraw;
 $('manCancel').onclick=()=>{show('man',false);if(M.fromLive&&L.stream){L.paused=false;L.hold=0;L.last=null;}};
 $('manOk').onclick=async()=>{const D=cornerDefs(),P=S.prep.profile,pageW=+P.page.widthPx||1656,pageH=+P.page.heightPx||2339,src=M.src,sh=M.sh;
  const b=$('manOk');b.disabled=true;b.textContent='Đang chấm…';await tick();
- try{const A=manA(),work=M.work;
+ try{const A=autoSnap(manA()),work=M.work;
   const R=decodeAll(A,null);sh.cvUsed=work;sh.base=src;sh.A=A;sh.alignError='';sh.preview='';sh.anhFileId='';sh.savedOk='';sh.khoOk=false;applyRead(sh,R);sh.warn=sh.warn.concat(['Đặt 4 góc thủ công']);
   await grade(sh);show('man',false);
   if(M.fromLive&&L.stream)await showLiveRes(sh);else{renderRes();window.scrollTo(0,$('stepRes').offsetTop-60);}
@@ -715,7 +731,7 @@ async function saveQuiet(sh){
   S.hist.unshift({sbd:sh.sbd,ten:(S.roster[sh.sbd]||{}).ten||'',diem:d});renderHist();return true;
  }catch(e){alert('Chưa lưu được: '+e.message);return false;}
 }
-window.__dt={globalAlign,normalizeLight,renderSheet,rotateCv,S,M};
+window.__snap=v=>{SNAP_N=v[0];SNAP_STEP=v[1];SNAP_GAIN=v[2];SNAP_R=v[3];};window.__dt={globalAlign,normalizeLight,renderSheet,rotateCv,S,M};
 $('btnLive').onclick=startLive;$('liveClose').onclick=stopLive;
 $('liveShot').onclick=async()=>{if(!L.stream||L.busy)return;L.paused=true;L.manualShot=true;liveMsg('Đang chấm…');const full=frameCanvas(2400);if(!full){L.paused=false;return;}
  try{await liveGrade(full);}finally{L.manualShot=false;}};
