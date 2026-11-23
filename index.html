@@ -17,6 +17,11 @@ button{border:0;border-radius:12px;padding:14px 16px;font-size:17px;font-weight:
 button.main{background:#176b43;color:#fff}button.red{background:#c0262d;color:#fff}button:disabled{opacity:.5}
 .big-cam{display:flex;align-items:center;justify-content:center;gap:10px;width:100%;padding:22px;font-size:21px;background:#176b43;color:#fff;border-radius:16px}
 .row{display:flex;gap:8px}.row>*{flex:1}
+.da-q{display:flex;align-items:center;gap:6px;margin:4px 0}.da-q b{width:34px;text-align:right;font-size:15px}
+.da-q button{padding:8px 0;width:44px;flex:none;font-size:16px;border:1px solid #bcccc2;background:#fff;color:#1d3326;border-radius:22px}
+.da-q button.on{background:#176b43;color:#fff;border-color:#176b43}.da-q button.s{background:#c0262d;color:#fff;border-color:#c0262d}
+.da-q input{width:110px;flex:none;padding:8px}.da-sec{margin:12px 0 4px;font-weight:bold;color:#176b43}
+.w4 input{padding:8px;font-size:16px}
 .ok{color:#11793f}.bad{color:#b42318}.warn{color:#9a6200}.muted{color:#64746a;font-size:14px;line-height:1.45}
 .checks div{margin:3px 0;font-size:14px}
 .score{text-align:center}.score .d{font-size:56px;font-weight:bold;color:#c0262d;line-height:1.1}
@@ -67,9 +72,27 @@ img.prev{width:100%;border:1px solid #ccd8d0;border-radius:8px;margin-top:8px}
  <select id="examSelect"><option value="">Đang tải…</option></select>
  <div style="margin-top:10px"><b>Cách chấm</b>
   <label style="font-weight:normal;display:flex;gap:8px;align-items:flex-start;margin:6px 0"><input type="radio" name="mode" value="C1" checked> <span><b>C1 · Chấm &amp; LƯU điểm</b> — cần đáp án + danh sách thí sinh. Máy hiện tên HS, lưu điểm vào hệ thống.</span></label>
+  <label style="font-weight:normal;display:flex;gap:8px;align-items:flex-start;margin:6px 0"><input type="radio" name="mode" value="C3"> <span><b>C3 · Chấm nhanh – ĐÁP ÁN CHỈ TRÊN MÁY NÀY</b> — không cần đáp án trên hệ thống: chọn một đợt bất kỳ dùng <b>cùng mẫu phiếu</b>, tự nhập đáp án &amp; điểm trên điện thoại (kiểm tra 15 phút…). Không gửi gì lên hệ thống.</span></label>
   <label style="font-weight:normal;display:flex;gap:8px;align-items:flex-start;margin:6px 0"><input type="radio" name="mode" value="C2"> <span><b>C2 · Chỉ CHẤM XEM ĐIỂM</b> — chỉ cần đáp án, không cần danh sách. Máy hiện điểm TN để GV ghi tay lên bài, nhập điểm Tự luận → ra Tổng điểm. Không lưu gì lên hệ thống.</span></label>
  </div>
  <div id="checkList" class="checks muted" style="margin-top:8px"></div>
+</section>
+
+<section class="card hide" id="stepDA">
+ <div class="row" style="align-items:center"><label style="margin:0" id="daTitle">📝 Đáp án &amp; điểm</label><button type="button" id="daToggle" style="flex:none">✏️ Nhập / sửa đáp án</button></div>
+ <div id="daInfo" class="muted" style="margin-top:6px"></div>
+ <div id="daEd" class="hide">
+  <div class="row" style="margin-top:8px"><div><label>Mã đề</label><select id="daCode"></select></div><div><label>Thêm mã đề</label><div class="row"><input type="text" id="daNew" inputmode="numeric" placeholder="vd 101"><button type="button" id="daAdd" style="flex:none">＋</button></div></div></div>
+  <div class="row" style="margin-top:6px"><button type="button" id="daCopy">⧉ Chép từ mã đề khác</button><button type="button" id="daDel" class="red">🗑 Bỏ mã đề này</button></div>
+  <div class="da-sec">Gõ nhanh Phần I (từ câu 1)</div><div class="row"><input type="text" id="daFast" placeholder="vd ABCDDCBA..." style="text-transform:uppercase"><button type="button" id="daFastGo" style="flex:none">Điền</button></div>
+  <div id="daForm"></div>
+  <div class="da-sec">Điểm</div>
+  <div class="row w4"><div><label>Tổng điểm Phần I</label><input type="text" inputmode="decimal" id="wI"></div><div><label>Tổng điểm Phần III</label><input type="text" inputmode="decimal" id="wIII"></div></div>
+  <label style="margin-top:6px">Phần II – điểm khi đúng 1 / 2 / 3 / 4 ý</label><div class="row w4"><input type="text" inputmode="decimal" id="wII1"><input type="text" inputmode="decimal" id="wII2"><input type="text" inputmode="decimal" id="wII3"><input type="text" inputmode="decimal" id="wII4"></div>
+  <div class="row w4" style="margin-top:6px"><div><label>Làm tròn</label><select id="wRound"><option value="none">Không</option><option value="0.1">0,1</option><option value="0.25">0,25</option><option value="0.5">0,5</option></select></div><div id="wSum" class="muted" style="align-self:end"></div></div>
+  <button type="button" class="main" id="daSave" style="width:100%;margin-top:10px">💾 Lưu đáp án</button>
+  <div id="daMsg" class="muted" style="margin-top:6px"></div>
+ </div>
 </section>
 
 <section class="card hide" id="stepCam">
@@ -379,7 +402,7 @@ async function annotate(sh){
  }
  // khung điểm góc trên trái
  const st=S.roster[sh.sbd]||{},II=(score.chiTiet||[]).filter(r=>r[0]==='II').map(r=>String(r[4]).split('/')[0]);
- const lines=[st.ten||'','Môn: '+(S.prep.exam.mon||'')+(S.prep.exam.ten?' · '+S.prep.exam.ten:''),'Số BD: '+sh.sbd+(st.lop?' · Lớp: '+st.lop:''),'Mã đề: '+sh.maDe,'P1: '+(score.p1??'')+' đ'+(score.tk?' ('+score.tk.I.dung+' câu đúng)':''),'P2: '+(score.p2??'')+' đ'+(II.length?' (Số ý đúng: '+II.join(',')+')':''),'P3: '+(score.p3??'')+' đ','—————————————','Tổng điểm: '+(score.diem??'')+' / '+(S.prep.thangDiem||10)];
+ const lines=[st.ten||'','Môn: '+(S.prep.exam.mon||'')+(S.prep.exam.ten?' · '+S.prep.exam.ten:''),'Số BD: '+sh.sbd+(st.lop?' · Lớp: '+st.lop:''),'Mã đề: '+sh.maDe,'P1: '+(score.p1??'')+' đ'+(score.tk?' ('+score.tk.I.dung+' câu đúng)':''),'P2: '+(score.p2??'')+' đ'+(II.length?' (Số ý đúng: '+II.join(',')+')':''),'P3: '+(score.p3??'')+' đ','—————————————','Tổng điểm: '+(score.diem??'')+' / '+(thangHienTai())];
  if(sh.edited)lines.push('(Có chỉnh sửa tay khi duyệt)');lines.push('(✓ xanh: đúng · ✗ đỏ: sai)');
  const fs=Math.round(8.5*u),lh=fs*1.35;c.font=fs+'px Arial';const bw=Math.max(...lines.map(t=>c.measureText(t).width))+fs*1.4,bh=lines.length*lh+fs;
  c.fillStyle='rgba(255,255,255,.96)';c.fillRect(4*u,4*u,bw,bh);c.strokeStyle='#e01b1b';c.lineWidth=2*u;c.strokeRect(4*u,4*u,bw,bh);
@@ -478,7 +501,7 @@ async function readCanvas(base){
  if(base.width>base.height)base=rotateCv(base,90);
  if(flipGet())base=rotateCv(base,180);
  let best=null,lastErr='';
- const good=R=>!!(S.roster[R.sbd]||matchKey(R.sbd,S.roster))&&!!(S.codes[R.maDe]||matchKey(R.maDe,S.codes));
+ const good=R=>(isC2()?/^\d+$/.test(R.sbd):!!(S.roster[R.sbd]||matchKey(R.sbd,S.roster)))&&!!(S.codes[R.maDe]||matchKey(R.maDe,S.codes));
  for(const rot of [0,180]){
   const b=rot?rotateCv(base,180):base;
   const variants=[['sáng',normalizeLight(b)],['gốc',b]];
@@ -501,21 +524,86 @@ async function readCanvas(base){
  return {error:lastErr||'Không tìm thấy 4 dấu chuẩn.',base};
 }
 
+
+/* ================= ĐÁP ÁN TRÊN ĐIỆN THOẠI (A: lưu lên đợt · C3: chỉ trên máy) ================= */
+const DA={codes:{},w:null,cur:'',dirty:false,srv:null};
+function structure(){if(!S.structure||S._strP!==S.prep){S.structure=decodeAll(null,null).ans;S._strP=S.prep;}return S.structure;}
+function daKey(){return 'omrDtLocal_'+(S.prep&&S.prep.profile&&S.prep.profile.profile?S.prep.profile.profile.id:'x');}
+function daLocal(){try{return JSON.parse(localStorage.getItem(daKey())||'null')||{codes:{},w:null};}catch(e){return{codes:{},w:null};}}
+function wDef(){const T=structure(),nI=Object.keys(T.I).length,nIII=Object.keys(T.III).length;return{tongI:nI?+(nI*.25).toFixed(2):0,ii:[0.1,0.25,0.5,1],tongIII:nIII?+(nIII*.25).toFixed(2):0,lamTron:'none'};}
+function num(v){const n=parseFloat(String(v==null?'':v).replace(',','.'));return isNaN(n)?0:n;}
+function daInfo(){if(!S.prep)return;const m=mode();
+ $('daTitle').textContent=m==='C3'?'📝 Đáp án trên máy này (C3)':'📝 Đáp án của đợt (lưu lên hệ thống)';
+ if(m==='C3'){const L=daLocal(),n=Object.keys(L.codes).length;$('daInfo').innerHTML=n?'Đã có <b>'+n+'</b> mã đề trên máy này ('+Object.keys(L.codes).join(', ')+'). Chỉ dùng cho mẫu phiếu “'+esc(S.prep.profile.profile.name||'')+'”.':'Chưa có đáp án trên máy này.';}
+ else $('daInfo').innerHTML='Đợt này có <b>'+S.prep.codes.length+'</b> mã đề trên hệ thống'+(S.prep.codes.length?' ('+S.prep.codes.join(', ')+')':'')+'. Có thể nhập / sửa ngay trên điện thoại — bản cũ được giữ trong lịch sử.';}
+async function daOpen(){const ed=$('daEd');if(!ed.classList.contains('hide')){ed.classList.add('hide');return;}
+ $('daMsg').textContent='Đang tải…';ed.classList.remove('hide');
+ try{if(mode()==='C3'){const L=daLocal();DA.codes=JSON.parse(JSON.stringify(L.codes||{}));DA.w=L.w||wDef();}
+  else{const r=await gas('omrDtDapAnLoad',S.prep.exam.id);DA.srv=r;DA.codes=r.codes||{};DA.w=r.w||wDef();}
+  DA.cur=Object.keys(DA.codes)[0]||'';DA.dirty=false;daW();daCodes();$('daMsg').textContent=mode()==='C3'?'Đáp án chỉ lưu trên điện thoại này.':(DA.srv&&DA.srv.version?'Phiên bản đáp án hiện tại: '+DA.srv.version+(DA.srv.updatedAt?' · '+DA.srv.updatedAt:''):'Đợt chưa có đáp án.');}
+ catch(e){$('daMsg').innerHTML='<span class="bad">'+esc(e.message)+'</span>';}}
+function daW(){const w=DA.w;$('wI').value=w.tongI;$('wIII').value=w.tongIII;[0,1,2,3].forEach(i=>$('wII'+(i+1)).value=(w.ii||[])[i]??'');$('wRound').value=w.lamTron||'none';daSum();}
+function daReadW(){DA.w={tongI:num($('wI').value),tongIII:num($('wIII').value),ii:[1,2,3,4].map(i=>num($('wII'+i).value)),lamTron:$('wRound').value};}
+function daSum(){daReadW();const T=structure(),c=DA.codes[DA.cur];const nII=c?Object.keys(c.II||{}).filter(q=>(c.II[q]||[]).some(v=>v)).length:Object.keys(T.II).length;
+ $('wSum').innerHTML='Tối đa: <b>'+(Math.round((DA.w.tongI+DA.w.tongIII+nII*Math.max(...DA.w.ii))*100)/100)+'</b> điểm';}
+function daCodes(){const ks=Object.keys(DA.codes).sort();$('daCode').innerHTML=ks.length?ks.map(c=>'<option'+(c===DA.cur?' selected':'')+'>'+esc(c)+'</option>').join(''):'<option value="">(chưa có — thêm mã đề)</option>';daForm();}
+function daForm(){const c=DA.codes[DA.cur];if(!c){$('daForm').innerHTML='<p class="muted">Thêm mã đề để nhập đáp án.</p>';return;}
+ const T=structure(),qs=o=>Object.keys(o).sort((a,b)=>(+a)-(+b));let h='';
+ if(qs(T.I).length)h+='<div class="da-sec">Phần I</div>'+qs(T.I).map(q=>'<div class="da-q"><b>'+q+'</b>'+['A','B','C','D'].map(L=>'<button type="button" data-i="'+q+'" data-v="'+L+'" class="'+((c.I[q]||'')===L?'on':'')+'">'+L+'</button>').join('')+'</div>').join('');
+ if(qs(T.II).length)h+='<div class="da-sec">Phần II (bấm để đổi Đ → S → trống)</div>'+qs(T.II).map(q=>'<div class="da-q"><b>'+q+'</b>'+[0,1,2,3].map(k=>{const v=((c.II[q]||[])[k]||'').toUpperCase();return '<button type="button" data-ii="'+q+'" data-k="'+k+'" class="'+(v==='D'||v==='Đ'?'on':v==='S'?'s':'')+'">'+'abcd'[k]+(v==='D'||v==='Đ'?' Đ':v==='S'?' S':'')+'</button>';}).join('')+'</div>').join('');
+ if(qs(T.III).length)h+='<div class="da-sec">Phần III</div>'+qs(T.III).map(q=>'<div class="da-q"><b>'+q+'</b><input type="text" inputmode="decimal" data-iii="'+q+'" value="'+esc(c.III[q]||'')+'" placeholder="vd -2,5"></div>').join('');
+ $('daForm').innerHTML=h||'<p class="muted">Mẫu phiếu chưa có vùng Phần I/II/III.</p>';
+ $('daForm').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{const q=b.dataset.i;c.I[q]=c.I[q]===b.dataset.v?'':b.dataset.v;DA.dirty=true;daForm();});
+ $('daForm').querySelectorAll('[data-ii]').forEach(b=>b.onclick=()=>{const q=b.dataset.ii,k=+b.dataset.k;c.II[q]=c.II[q]||['','','',''];const v=(c.II[q][k]||'').toUpperCase();c.II[q][k]=v===''?'D':(v==='D'||v==='Đ')?'S':'';DA.dirty=true;daForm();daSum();});
+ $('daForm').querySelectorAll('[data-iii]').forEach(i=>i.oninput=()=>{c.III[i.dataset.iii]=i.value.trim().replace('.',',');DA.dirty=true;});}
+function daNorm(codes){const o={};Object.keys(codes).forEach(m=>{const c=codes[m];o[m]={I:Object.assign({},c.I),II:{},III:Object.assign({},c.III)};Object.keys(c.II||{}).forEach(q=>o[m].II[q]=(c.II[q]||[]).map(v=>{v=String(v||'').toUpperCase();return v==='Đ'?'D':v;}));});return o;}
+async function daSave(){daReadW();const codes=daNorm(DA.codes);const n=Object.keys(codes).length;if(!n){$('daMsg').innerHTML='<span class="bad">Chưa có mã đề nào.</span>';return;}
+ if(mode()==='C3'){try{localStorage.setItem(daKey(),JSON.stringify({codes,w:DA.w}));}catch(e){alert('Không lưu được trên máy: '+e.message);return;}
+  DA.dirty=false;$('daMsg').innerHTML='<span class="ok">✔ Đã lưu '+n+' mã đề trên máy này.</span>';renderCheck();return;}
+ if(!confirm('Lưu đáp án '+n+' mã đề ('+Object.keys(codes).join(', ')+') cho đợt "'+S.prep.exam.ten+'"?\nĐáp án cũ được chép sang lịch sử. Trọng số: P.I '+DA.w.tongI+' đ · P.II '+DA.w.ii.join('/')+' · P.III '+DA.w.tongIII+' đ.'))return;
+ $('daSave').disabled=true;$('daMsg').textContent='Đang lưu…';
+ try{const r=await gas('omrDtDapAnSave',{examId:S.prep.exam.id,codes,w:DA.w});$('daMsg').innerHTML='<span class="ok">✔ '+esc(r.message)+'</span>';DA.dirty=false;
+  await prepare();$('daEd').classList.remove('hide');}
+ catch(e){$('daMsg').innerHTML='<span class="bad">Không lưu được: '+esc(e.message)+'</span>';}
+ $('daSave').disabled=false;}
+function thangHienTai(){if(mode()!=='C3')return S.prep.thangDiem||10;const L=daLocal(),w=L.w||wDef(),c=Object.values(L.codes||{})[0]||{II:{}};const nII=Object.keys(c.II||{}).filter(q=>(c.II[q]||[]).some(v=>v)).length;return Math.round((w.tongI+w.tongIII+nII*Math.max(...w.ii))*100)/100;}
+function gradeLocal(L,maDe,a){const k=(L.codes||{})[maDe];if(!k)return{error:'Mã đề '+maDe+' chưa có đáp án trên máy này.'};const w=L.w||wDef();a=a||{};
+ const z=()=>({dung:0,sai:0,trong:0,loi:0}),tk={I:z(),II:z(),III:z()},ct=[];let p1=0,p2=0,p3=0;const r2=x=>Math.round(x*100)/100;
+ const qI=Object.keys(k.I||{}).filter(q=>k.I[q]),qII=Object.keys(k.II||{}).filter(q=>(k.II[q]||[]).some(v=>v)),qIII=Object.keys(k.III||{}).filter(q=>String(k.III[q]||'').trim());
+ const wI=qI.length?w.tongI/qI.length:0,wIII=qIII.length?w.tongIII/qIII.length:0;
+ qI.forEach(q=>{const ans=k.I[q],got=String((a.I||{})[q]||'').toUpperCase();const kq=!got?'T':(got==='*'||got.length>1)?'L':got===ans?'D':'S';if(kq==='D')p1+=wI;tk.I[{D:'dung',S:'sai',T:'trong',L:'loi'}[kq]]++;ct.push(['I',q,got,ans,kq,kq==='D'?r2(wI):0]);});
+ qII.forEach(q=>{const key=k.II[q],got=(a.II||{})[q]||[];let n=0;const gs=[],as=[];for(let i=0;i<key.length;i++){const kk=String(key[i]||'').toUpperCase(),gg=String(got[i]||'').toUpperCase();as.push(kk||'?');gs.push(gg||'_');if(!gg)tk.II.trong++;else if(gg==='*')tk.II.loi++;else if(kk&&gg===kk){n++;tk.II.dung++;}else tk.II.sai++;}
+  const d=n>0?(w.ii[n-1]||0):0;p2+=d;ct.push(['II',q,gs.join(''),as.join(''),n+'/'+key.length,r2(d)]);});
+ const same=(x,y)=>{const nx=parseFloat(String(x).replace(',','.')),ny=parseFloat(String(y).replace(',','.'));return !isNaN(nx)&&!isNaN(ny)?Math.abs(nx-ny)<1e-9:String(x).replace('.',',')===String(y).replace('.',',');};
+ qIII.forEach(q=>{const ans=k.III[q],got=String((a.III||{})[q]||'');const kq=!got?'T':got[0]==='!'?'L':same(ans,got)?'D':'S';if(kq==='D')p3+=wIII;tk.III[{D:'dung',S:'sai',T:'trong',L:'loi'}[kq]]++;ct.push(['III',q,got,ans,kq,kq==='D'?r2(wIII):0]);});
+ const step={'0.1':.1,'0.25':.25,'0.5':.5}[w.lamTron],tot=p1+p2+p3,diem=step?r2(Math.round(tot/step)*step):r2(tot);
+ const tong={dung:0,sai:0,trong:0,loi:0};['I','II','III'].forEach(p=>Object.keys(tong).forEach(f=>tong[f]+=tk[p][f]));
+ return{diem,p1:r2(p1),p2:r2(p2),p3:r2(p3),tk,tong,chiTiet:ct};}
+$('daToggle').onclick=daOpen;$('daCode').onchange=()=>{DA.cur=$('daCode').value;daForm();daSum();};
+$('daAdd').onclick=()=>{const m=$('daNew').value.trim();if(!/^[A-Za-z0-9]{1,10}$/.test(m)){alert('Mã đề chỉ gồm chữ/số.');return;}if(!DA.codes[m])DA.codes[m]={I:{},II:{},III:{}};DA.cur=m;$('daNew').value='';DA.dirty=true;daCodes();};
+$('daDel').onclick=()=>{if(!DA.cur||!confirm('Bỏ mã đề '+DA.cur+' khỏi bộ đáp án (chỉ có hiệu lực khi bấm Lưu)?'))return;delete DA.codes[DA.cur];DA.cur=Object.keys(DA.codes)[0]||'';DA.dirty=true;daCodes();};
+$('daCopy').onclick=()=>{const ks=Object.keys(DA.codes).filter(c=>c!==DA.cur);if(!DA.cur||!ks.length){alert('Cần ít nhất 2 mã đề.');return;}const f=prompt('Chép đáp án từ mã đề nào sang '+DA.cur+'? ('+ks.join(', ')+')',ks[0]);if(!f||!DA.codes[f])return;DA.codes[DA.cur]=JSON.parse(JSON.stringify(DA.codes[f]));DA.dirty=true;daForm();};
+$('daFastGo').onclick=()=>{const c=DA.codes[DA.cur];if(!c){alert('Chọn hoặc thêm mã đề trước.');return;}const t=$('daFast').value.toUpperCase().replace(/[^ABCD_]/g,'');const qs=Object.keys(structure().I).sort((a,b)=>(+a)-(+b));t.split('').forEach((L,i)=>{if(qs[i])c.I[qs[i]]=L==='_'?'':L;});DA.dirty=true;daForm();};
+['wI','wIII','wII1','wII2','wII3','wII4'].forEach(id=>$(id).oninput=daSum);$('wRound').onchange=daSum;$('daSave').onclick=daSave;
+
 /* ================= GIAO DIỆN ================= */
 function show(id,on){$(id).classList.toggle('hide',!on);}
 function busy(msg){show('stepRes',true);$('resBusy').innerHTML=msg?'<span class="spin" style="border-color:#176b4333;border-top-color:#176b43"></span> '+esc(msg):'';}
-function isC2(){const r=document.querySelector('input[name=mode]:checked');return !!r&&r.value==='C2';}
-const C2_BO_QUA=/Danh sách thí sinh|Số chữ số SBD|Sheet kết quả/;
-function renderCheck(){const p=S.prep;if(!p)return;const c2=isC2();
- const bad=p.checks.filter(c=>!c.ok&&!(c2&&C2_BO_QUA.test(c.item)));
- const ready=c2?p.checks.every(c=>c.ok||!c.required||C2_BO_QUA.test(c.item)):p.ready;S.ready=ready;
+function mode(){const r=document.querySelector('input[name=mode]:checked');return r?r.value:'C1';}
+function isC2(){return mode()!=='C1';}   // C2 & C3: không cần danh sách, không lưu
+const C2_BO_QUA=/Danh sách thí sinh|Số chữ số SBD|Sheet kết quả/,C3_BO_QUA=/Danh sách thí sinh|Số chữ số SBD|Sheet kết quả|Đáp án|Trọng số|Tổng điểm/;
+function renderCheck(){const p=S.prep;if(!p)return;const c2=isC2(),m=mode(),BQ=m==='C3'?C3_BO_QUA:C2_BO_QUA;
+ S.codes={};if(m==='C3')Object.keys(daLocal().codes).forEach(c=>S.codes[c]=1);else p.codes.forEach(c=>S.codes[c]=1);
+ const bad=p.checks.filter(c=>!c.ok&&!(c2&&BQ.test(c.item)));
+ let ready=c2?p.checks.every(c=>c.ok||!c.required||BQ.test(c.item)):p.ready;if(m==='C3'&&!Object.keys(S.codes).length)ready=false;S.ready=ready;show('stepDA',true);daInfo();
  $('checkList').innerHTML=(bad.length?bad.map(c=>'<div class="'+(c.required?'bad':'warn')+'">'+(c.required?'✘':'⚠')+' <b>'+esc(c.item)+':</b> '+esc(c.msg)+'</div>').join(''):'')+
-  (ready?(c2?'<div class="ok"><b>✔ C2 · Chỉ chấm xem điểm</b> · '+p.codes.length+' mã đề · không lưu lên hệ thống.</div>':'<div class="ok"><b>✔ Sẵn sàng chấm</b> · '+p.roster.length+' thí sinh · '+p.codes.length+' mã đề · đã có '+p.savedSbd.length+' bài.</div>')
+  (m==='C3'&&!Object.keys(S.codes).length?'<div class="warn"><b>C3:</b> chưa có đáp án trên máy này — bấm <b>✏️ Nhập / sửa đáp án</b> ở dưới.</div>':'')+
+  (ready?(c2?'<div class="ok"><b>✔ '+(m==='C3'?'C3 · Chấm nhanh (đáp án trên máy)':'C2 · Chỉ chấm xem điểm')+'</b> · '+Object.keys(S.codes).length+' mã đề · không lưu lên hệ thống.</div>':'<div class="ok"><b>✔ Sẵn sàng chấm</b> · '+p.roster.length+' thí sinh · '+p.codes.length+' mã đề · đã có '+p.savedSbd.length+' bài.</div>')
    :'<div class="bad"><b>Chưa chấm được — hoàn tất các mục ✘ trên máy tính trước.</b>'+(!c2&&!p.roster.length?' Hoặc chọn <b>C2 · Chỉ chấm xem điểm</b> nếu không cần danh sách.':'')+'</div>');
  show('stepCam',ready);show('stepHist',S.hist.length>0);
  document.querySelectorAll('.c1only').forEach(x=>x.classList.toggle('hide',c2));}
 async function prepare(){
- const id=$('examSelect').value;S.prep=null;show('stepCam',false);show('stepRes',false);show('bar',false);
+ const id=$('examSelect').value;S.prep=null;show('stepCam',false);show('stepDA',false);$('daEd').classList.add('hide');show('stepRes',false);show('bar',false);
  if(!id){$('checkList').textContent='';return;}
  try{localStorage.setItem('omrDtExam',id);}catch(e){}
  $('checkList').textContent='Đang kiểm tra đợt chấm…';
@@ -544,6 +632,7 @@ async function onPhoto(file){
 async function grade(sh){
  sh.score=null;sh.scoreError='';
  if(!S.codes[sh.maDe])return;
+ if(mode()==='C3'){try{const r=gradeLocal(daLocal(),sh.maDe,sh.answers);if(r.error)sh.scoreError=r.error;else sh.score=r;}catch(e){sh.scoreError=e.message;}return;}
  try{const r=(await gas('omrHlChamThu',S.prep.exam.id,[{maDe:sh.maDe,answers:sh.answers}]))[0];if(r.error)sh.scoreError=r.error;else sh.score=r;}
  catch(e){sh.scoreError='Không chấm được: '+e.message;}
 }
@@ -562,7 +651,7 @@ function renderRes(){
   show('bar',true);$('barSave').disabled=true;return;}
  const st=S.roster[sh.sbd]||{},sc=sh.score,e=errorsOf(sh),tk=sc&&sc.tk;
  let h='<div class="score">'+(st.ten?'<div class="name">'+esc(st.ten)+'</div><div class="muted">Lớp '+esc(st.lop||'')+' · Phòng '+esc(st.phong||'')+'</div>':'')+
-  '<div class="d">'+(sc?esc(sc.diem):'—')+'</div><div class="muted">điểm phần trắc nghiệm / '+esc(S.prep.thangDiem||10)+'</div></div>';
+  '<div class="d">'+(sc?esc(sc.diem):'—')+'</div><div class="muted">điểm phần trắc nghiệm / '+esc(thangHienTai())+'</div></div>';
  if(sc)h+='<table><tr><th>Phần I</th><th>Phần II</th><th>Phần III</th></tr><tr><td>'+esc(sc.p1)+'</td><td>'+esc(sc.p2)+'</td><td>'+esc(sc.p3)+'</td></tr></table>'+
   (tk?'<table><tr><th></th><th>Đúng</th><th>Sai</th><th>Trống</th><th>Lỗi tô</th></tr>'+['I','II','III'].map(p=>'<tr><th>P'+(p==='I'?'1':p==='II'?'2 (ý)':'3')+'</th><td>'+tk[p].dung+'</td><td>'+tk[p].sai+'</td><td>'+tk[p].trong+'</td><td>'+tk[p].loi+'</td></tr>').join('')+'</table>':'');
  h+='<div class="row" style="margin-top:6px"><div><label for="fSbd">SBD</label><input type="text" id="fSbd" inputmode="numeric" value="'+esc(sh.sbd)+'"></div>'+
