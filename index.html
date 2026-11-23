@@ -65,6 +65,10 @@ img.prev{width:100%;border:1px solid #ccd8d0;border-radius:8px;margin-top:8px}
 <section class="card hide" id="stepDot">
  <label for="examSelect">1. Chọn đợt chấm</label>
  <select id="examSelect"><option value="">Đang tải…</option></select>
+ <div style="margin-top:10px"><b>Cách chấm</b>
+  <label style="font-weight:normal;display:flex;gap:8px;align-items:flex-start;margin:6px 0"><input type="radio" name="mode" value="C1" checked> <span><b>C1 · Chấm &amp; LƯU điểm</b> — cần đáp án + danh sách thí sinh. Máy hiện tên HS, lưu điểm vào hệ thống.</span></label>
+  <label style="font-weight:normal;display:flex;gap:8px;align-items:flex-start;margin:6px 0"><input type="radio" name="mode" value="C2"> <span><b>C2 · Chỉ CHẤM XEM ĐIỂM</b> — chỉ cần đáp án, không cần danh sách. Máy hiện điểm TN để GV ghi tay lên bài, nhập điểm Tự luận → ra Tổng điểm. Không lưu gì lên hệ thống.</span></label>
+ </div>
  <div id="checkList" class="checks muted" style="margin-top:8px"></div>
 </section>
 
@@ -75,8 +79,8 @@ img.prev{width:100%;border:1px solid #ccd8d0;border-radius:8px;margin-top:8px}
  <button class="big-cam" id="btnLive" type="button">🎥 QUÉT TRỰC TIẾP (tự chấm)</button>
  <button class="big-cam" id="btnCam" type="button" style="margin-top:8px;background:#2f7d55;padding:16px;font-size:18px">📷 Chụp ảnh từng phiếu</button>
  <div class="row" style="margin-top:8px"><button type="button" id="btnGal">🖼 Chọn ảnh có sẵn</button></div>
- <label style="margin-top:10px;font-weight:normal;display:flex;gap:8px;align-items:center"><input type="checkbox" id="autoSave"> Tự lưu ngay khi phiếu đọc tốt (không lỗi, không cảnh báo)</label>
- <label style="font-weight:normal;display:flex;gap:8px;align-items:center"><input type="checkbox" id="saveImg" checked> Lưu ảnh bài đã chấm (để HS xem khi tra cứu)</label>
+ <label class="c1only" style="margin-top:10px;font-weight:normal;display:flex;gap:8px;align-items:center"><input type="checkbox" id="autoSave"> Tự lưu ngay khi phiếu đọc tốt (không lỗi, không cảnh báo)</label>
+ <label class="c1only" style="font-weight:normal;display:flex;gap:8px;align-items:center"><input type="checkbox" id="saveImg" checked> Lưu ảnh bài đã chấm (để HS xem khi tra cứu)</label>
  <details class="muted" style="margin-top:6px"><summary>Mẹo chụp để máy đọc đúng</summary><ul class="tips">
   <li>Đặt phiếu trên mặt bàn phẳng, đủ sáng, không bóng tay/điện thoại đè lên phiếu.</li>
   <li>Cầm điện thoại thẳng đứng, song song với tờ phiếu, chụp <b>dọc</b>.</li>
@@ -189,10 +193,15 @@ function align(cv){
 
 /* ---------------- đọc ô trong 1 vùng ---------------- */
 // A = kết quả align (hoặc null để chỉ lấy cấu trúc câu hỏi, mọi ô coi là trống)
+/* Ngưỡng "điểm tối" tự thích nghi theo độ sáng giấy của từng phiếu: bút chì nhạt / ảnh quét sáng vẫn nhận là đã tô. */
+function gEff(A){if(A.gE!=null)return A.gE;const d=A.im.data,W=A.W,H=A.H,v=[];
+ for(let y=Math.floor(H*.1);y<H*.9;y+=12)for(let x=Math.floor(W*.1);x<W*.9;x+=12){const k=(y*W+x)*4;v.push(.299*d[k]+.587*d[k+1]+.114*d[k+2]);}
+ v.sort((a,b)=>a-b);const paper=v.length?v[Math.floor(v.length*.7)]:230;
+ A.paper=paper;A.gE=Math.max(S.th.gray,Math.min(200,Math.round(paper*.78)));return A.gE;}
 function zoneGrid(z,A,overlay){
  const g=geom(z),pts=centers(z),cells=[];
  pts.forEach(p=>{let ratio=0,sx=0,sy=0,rx=0;
-  if(A&&A.ok){const o=(A.zoff&&A.zoff.get(z))||{x:0,y:0};const q=applyH(A.Hps,(p.x+o.x)*A.pageW,(p.y+o.y)*A.pageH);sx=q.x;sy=q.y;rx=Math.max(2,p.dx*A.pageW*A.sX*.28);const ry=Math.max(2,p.dy*A.pageH*A.sY*.28);ratio=measure(A.im,A.W,A.H,sx,sy,rx,ry,S.th.gray);}
+  if(A&&A.ok){const o=(A.zoff&&A.zoff.get(z))||{x:0,y:0};const q=applyH(A.Hps,(p.x+o.x)*A.pageW,(p.y+o.y)*A.pageH);sx=q.x;sy=q.y;rx=Math.max(2,p.dx*A.pageW*A.sX*.28);const ry=Math.max(2,p.dy*A.pageH*A.sY*.28);ratio=measure(A.im,A.W,A.H,sx,sy,rx,ry,gEff(A));}
   cells.push({r:p.r,c:p.c,ratio,x:sx,y:sy,rx});});
  const sorted=cells.map(c=>c.ratio).sort((a,b)=>a-b),base=sorted.length?sorted[Math.floor(sorted.length*.3)]:0;
  cells.forEach(c=>{c.st=(c.ratio>=S.th.fill&&c.ratio>=base+.15)?'F':(c.ratio>=S.th.faint&&c.ratio>=base+.08)?'W':'';if(overlay&&c.st)overlay.push(c);});
@@ -206,7 +215,7 @@ function autoSnap(A){if(!A||!A.ok)return A;A.zoff=new Map();
  (S.prep.profile.zones||[]).forEach(z=>{if(['SBD','MA_DE','I','II','III'].indexOf(z.type)<0)return;const pts=centers(z);if(!pts.length)return;
   const dx=pts[0].dx,dy=pts[0].dy,r=Math.max(2,Math.min(dx*A.pageW*A.sX,dy*A.pageH*A.sY)*SNAP_R);let best={s:-1,x:0,y:0},base=0;
   for(let i=-SNAP_N;i<=SNAP_N;i++)for(let j=-SNAP_N;j<=SNAP_N;j++){const ox=i*SNAP_STEP*dx,oy=j*SNAP_STEP*dy;let sc=0;
-   for(const p of pts){const q=applyH(A.Hps,(p.x+ox)*A.pageW,(p.y+oy)*A.pageH);sc+=inkAt(A.im,A.W,A.H,q.x,q.y,r,S.th.gray);}
+   for(const p of pts){const q=applyH(A.Hps,(p.x+ox)*A.pageW,(p.y+oy)*A.pageH);sc+=inkAt(A.im,A.W,A.H,q.x,q.y,r,gEff(A));}
    if(!i&&!j)base=sc;if(sc>best.s+1e-9||(Math.abs(sc-best.s)<1e-9&&Math.abs(i)+Math.abs(j)<Math.abs(best.i||0)+Math.abs(best.j||0)))best={s:sc,x:ox,y:oy,i,j};}
   A.zoff.set(z,best.s>base*SNAP_GAIN?{x:best.x,y:best.y}:{x:0,y:0});});
  return A;}
@@ -495,6 +504,16 @@ async function readCanvas(base){
 /* ================= GIAO DIỆN ================= */
 function show(id,on){$(id).classList.toggle('hide',!on);}
 function busy(msg){show('stepRes',true);$('resBusy').innerHTML=msg?'<span class="spin" style="border-color:#176b4333;border-top-color:#176b43"></span> '+esc(msg):'';}
+function isC2(){const r=document.querySelector('input[name=mode]:checked');return !!r&&r.value==='C2';}
+const C2_BO_QUA=/Danh sách thí sinh|Số chữ số SBD|Sheet kết quả/;
+function renderCheck(){const p=S.prep;if(!p)return;const c2=isC2();
+ const bad=p.checks.filter(c=>!c.ok&&!(c2&&C2_BO_QUA.test(c.item)));
+ const ready=c2?p.checks.every(c=>c.ok||!c.required||C2_BO_QUA.test(c.item)):p.ready;S.ready=ready;
+ $('checkList').innerHTML=(bad.length?bad.map(c=>'<div class="'+(c.required?'bad':'warn')+'">'+(c.required?'✘':'⚠')+' <b>'+esc(c.item)+':</b> '+esc(c.msg)+'</div>').join(''):'')+
+  (ready?(c2?'<div class="ok"><b>✔ C2 · Chỉ chấm xem điểm</b> · '+p.codes.length+' mã đề · không lưu lên hệ thống.</div>':'<div class="ok"><b>✔ Sẵn sàng chấm</b> · '+p.roster.length+' thí sinh · '+p.codes.length+' mã đề · đã có '+p.savedSbd.length+' bài.</div>')
+   :'<div class="bad"><b>Chưa chấm được — hoàn tất các mục ✘ trên máy tính trước.</b>'+(!c2&&!p.roster.length?' Hoặc chọn <b>C2 · Chỉ chấm xem điểm</b> nếu không cần danh sách.':'')+'</div>');
+ show('stepCam',ready);show('stepHist',S.hist.length>0);
+ document.querySelectorAll('.c1only').forEach(x=>x.classList.toggle('hide',c2));}
 async function prepare(){
  const id=$('examSelect').value;S.prep=null;show('stepCam',false);show('stepRes',false);show('bar',false);
  if(!id){$('checkList').textContent='';return;}
@@ -502,10 +521,7 @@ async function prepare(){
  $('checkList').textContent='Đang kiểm tra đợt chấm…';
  try{const p=await gas('omrHlChuanBi',id);S.prep=p;S.roster={};p.roster.forEach(r=>S.roster[r.sbd]=r);S.codes={};p.codes.forEach(c=>S.codes[c]=1);S.saved={};p.savedSbd.forEach(s=>S.saved[s]=1);
   S.batchId='DT_'+stamp();
-  const bad=p.checks.filter(c=>!c.ok);
-  $('checkList').innerHTML=(bad.length?bad.map(c=>'<div class="'+(c.required?'bad':'warn')+'">'+(c.required?'✘':'⚠')+' <b>'+esc(c.item)+':</b> '+esc(c.msg)+'</div>').join(''):'')+
-   (p.ready?'<div class="ok"><b>✔ Sẵn sàng chấm</b> · '+p.roster.length+' thí sinh · '+p.codes.length+' mã đề · đã có '+p.savedSbd.length+' bài.</div>':'<div class="bad"><b>Chưa chấm được — hoàn tất các mục ✘ trên máy tính trước.</b></div>');
-  show('stepCam',p.ready);show('stepHist',S.hist.length>0);
+  renderCheck();
  }catch(e){$('checkList').innerHTML='<div class="bad">✘ '+esc(e.message)+'</div>';}
 }
 async function onPhoto(file){
@@ -522,7 +538,7 @@ async function onPhoto(file){
  if(!sh.alignError)await grade(sh);
  busy('');renderRes();
  if(sh.alignError){if(navigator.vibrate)navigator.vibrate([80,60,80]);return;}
- if($('autoSave').checked&&!errorsOf(sh).length&&!sh.warn.length&&!S.saved[sh.sbd])await save();
+ if(!isC2()&&$('autoSave').checked&&!errorsOf(sh).length&&!sh.warn.length&&!S.saved[sh.sbd])await save();
  else if(navigator.vibrate)navigator.vibrate(60);
 }
 async function grade(sh){
@@ -533,8 +549,8 @@ async function grade(sh){
 }
 function errorsOf(sh){const e=[];
  if(sh.alignError)return[sh.alignError];
- if(!/^\d+$/.test(sh.sbd))e.push('Chưa đọc được SBD ('+(sh.sbd||'trống')+').');
- else if(!S.roster[sh.sbd])e.push('SBD '+sh.sbd+' không có trong danh sách thí sinh.');
+ if(!isC2()){if(!/^\d+$/.test(sh.sbd))e.push('Chưa đọc được SBD ('+(sh.sbd||'trống')+').');
+ else if(!S.roster[sh.sbd])e.push('SBD '+sh.sbd+' không có trong danh sách thí sinh.');}
  if(!S.codes[sh.maDe])e.push('Mã đề "'+(sh.maDe||'trống')+'" không có trong đáp án.');
  if(sh.scoreError)e.push(sh.scoreError);
  return e;}
@@ -557,11 +573,12 @@ function renderRes(){
  if(sh.fixNote)h+='<p class="muted">'+esc(sh.fixNote)+'</p>';
  if(sh.savedOk)h+='<p class="ok"><b>✔ ĐÃ LƯU</b> '+esc(sh.savedOk)+'</p>';
  if(e.length||sh.warn.length>3)h+=manBtn(sh)+khoBtn(sh);
+ if(isC2()&&sh.score)h+=tlBox(sh,'tlR');
  h+='<div id="prevBox"></div>';
- $('resBody').innerHTML=h;
+ $('resBody').innerHTML=h;bindTl(sh,'tlR');c2Hist(sh);
  const re=async()=>{sh.sbd=$('fSbd').value.replace(/\D/g,'');sh.maDe=$('fMa').value;sh.edited=true;sh.savedOk='';const m=matchKey(sh.sbd,S.roster);if(m&&m.fixed)sh.sbd=m.v;busy('Đang chấm lại…');await grade(sh);busy('');renderRes();};
  $('fSbd').onchange=re;$('fMa').onchange=re;
- show('bar',true);$('barSave').disabled=!!e.length||!!sh.savedOk;$('barSave').textContent=sh.savedOk?'✔ Đã lưu':'💾 Lưu điểm';
+ show('bar',true);$('barSave').disabled=!!e.length||!!sh.savedOk;$('barSave').textContent=sh.savedOk?'✔ Đã lưu':'💾 Lưu điểm';$('barSave').classList.toggle('hide',isC2());
  bindKho(sh);bindMan(sh);
  if(!sc&&sh.A&&sh.A.ok){const u=overlayImg(sh);const b=$('prevBox');if(b)b.innerHTML='<p class="muted" style="margin:8px 0 2px"><b>Máy đọc phiếu như sau</b> — khung xanh dương phải trùng các vùng tô; vòng xanh lá = ô máy cho là đã tô. Nếu khung lệch khỏi ô tô → chụp lại thẳng hơn, hoặc gửi vào Kho để căn tay trên máy tính.</p><img class="prev" alt="Vùng máy đọc" src="'+u+'">';}
  if(sc&&sh.A&&sh.A.ok)annotate(sh).then(u=>{sh.preview=u;const b=$('prevBox');if(b&&S.cur===sh)b.innerHTML='<img class="prev" alt="Ảnh phiếu đã chấm" src="'+u+'">';}).catch(()=>{});
@@ -581,8 +598,15 @@ async function save(){
  }catch(e){alert('Chưa lưu được: '+e.message);}
  busy('');renderRes();
 }
+function tlBox(sh,id){return '<div class="row" style="margin-top:8px;align-items:center"><div><label for="'+id+'">Điểm Tự luận</label><input type="text" inputmode="decimal" id="'+id+'" value="'+esc(sh.tl||'')+'" placeholder="vd 2,5" style="font-size:20px;width:110px"></div><div style="font-size:15px">TỔNG = <b id="'+id+'T" style="font-size:28px">'+esc(tongStr(sh))+'</b></div></div>';}
+function tongStr(sh){const tn=sh.score?+String(sh.score.diem).replace(',','.'):NaN,tl=parseFloat(String(sh.tl||'').replace(',','.'));if(isNaN(tn))return '—';const t=isNaN(tl)?tn:tn+tl;return String(Math.round(t*100)/100).replace('.',',');}
+function bindTl(sh,id){const el=$(id);if(!el)return;el.oninput=()=>{sh.tl=el.value;$(id+'T').textContent=tongStr(sh);const h=S.hist.find(x=>x.ref===sh);if(h){h.tl=sh.tl;h.tong=tongStr(sh);renderHist();}};}
+function c2Hist(sh){if(!isC2()||!sh.score||S.hist.some(x=>x.ref===sh))return;S.hist.unshift({ref:sh,sbd:sh.sbd||'?',ten:'Mã đề '+(sh.maDe||'?'),diem:sh.score.diem,tl:'',tong:tongStr(sh)});renderHist();}
+function c2Csv(){const rows=[['STT','SBD đọc được','Mã đề','Điểm TN','Điểm TL','Tổng']].concat(S.hist.slice().reverse().map((x,i)=>[i+1,x.sbd,(x.ten||'').replace('Mã đề ',''),x.diem,x.tl||'',x.tong||x.diem]));
+ const csv='\ufeff'+rows.map(r=>r.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='CHAM_NHANH_'+stamp()+'.csv';document.body.appendChild(a);a.click();a.remove();}
 function renderHist(){show('stepHist',S.hist.length>0);$('histCount').textContent=S.hist.length;
- $('hist').innerHTML=S.hist.slice(0,50).map(x=>'<div><span>'+esc(x.sbd)+' · '+esc(x.ten)+'</span><b>'+esc(x.diem)+'</b></div>').join('');}
+ $('hist').innerHTML=S.hist.slice(0,50).map(x=>'<div><span>'+esc(x.sbd)+' · '+esc(x.ten)+'</span><b>'+esc(x.diem)+(x.tl?' + '+esc(x.tl)+' = '+esc(x.tong):'')+'</b></div>').join('')+(isC2()&&S.hist.length?'<button type="button" id="c2Csv" style="margin-top:8px">⬇ Tải danh sách điểm phiên này (CSV)</button>':'');
+ if($('c2Csv'))$('c2Csv').onclick=c2Csv;}
 
 /* ================= XEM VÙNG ĐỌC + GỬI PHIẾU LỖI VÀO KHO ================= */
 function overlayImg(sh){const src=sh.cvUsed,A=sh.A,ov=[];decodeAll(A,ov);const sc=Math.min(1,1400/Math.max(src.width,src.height)),cv=document.createElement('canvas');cv.width=Math.round(src.width*sc);cv.height=Math.round(src.height*sc);
@@ -716,22 +740,22 @@ async function showLiveRes(sh){
  const e=errorsOf(sh),st=S.roster[sh.sbd]||{};
  let img='';try{img=await annotate(sh);sh.preview=img;}catch(_){}
  const box=$('liveRes');box.classList.remove('hide');liveMsg('');
- box.innerHTML=(st.ten?'<div style="font-size:20px;font-weight:bold">'+esc(st.ten)+'</div><div>SBD '+esc(sh.sbd)+' · Lớp '+esc(st.lop||'')+' · Mã đề '+esc(sh.maDe)+'</div>':'<div>SBD đọc được: '+esc(sh.sbd||'?')+' · Mã đề '+esc(sh.maDe||'?')+'</div>')+
+ box.innerHTML=(st.ten?'<div style="font-size:20px;font-weight:bold">'+esc(st.ten)+'</div><div>SBD '+esc(sh.sbd)+' · Lớp '+esc(st.lop||'')+' · Mã đề '+esc(sh.maDe)+'</div>':'<div>SBD đọc được: '+esc(sh.sbd||'?')+' · Mã đề '+esc(sh.maDe||'?')+(isC2()?' · <b>C2: chỉ xem điểm</b>':'')+'</div>')+
   '<div class="d">'+(sh.score?esc(sh.score.diem):'—')+'</div>'+(sh.score?'<div>P1 '+esc(sh.score.p1)+' · P2 '+esc(sh.score.p2)+' · P3 '+esc(sh.score.p3)+(sh.score.tong?' · Đúng '+sh.score.tong.dung+' / Sai '+sh.score.tong.sai:'')+'</div>':'')+
   (e.length?'<div style="color:#ff8a8a;margin:6px 0">'+e.map(esc).join('<br>')+'</div>':'')+(sh.warn.length?'<div style="color:#ffd27a;font-size:13px;margin:4px 0">⚠ '+sh.warn.length+' chỗ cần xem lại: '+sh.warn.slice(0,3).map(esc).join('; ')+'</div>':'')+
-  (S.saved[sh.sbd]?'<div style="color:#ffd27a">⚠ SBD này đã có điểm — lưu sẽ thay bản cũ.</div>':'')+
+  (!isC2()&&S.saved[sh.sbd]?'<div style="color:#ffd27a">⚠ SBD này đã có điểm — lưu sẽ thay bản cũ.</div>':'')+(isC2()&&sh.score?tlBox(sh,'tlL'):'')+
   (img?'<img src="'+img+'" alt="Phiếu đã chấm">':'')+
-  '<div class="row" style="margin-top:10px"><button id="lvAgain">↺ Quét lại</button>'+(e.length?'<button class="main" id="lvFix">✎ Sửa SBD / mã đề</button><button id="lvKho" style="background:#b26a00;color:#fff">📦 Vào Kho</button>':'<button class="main" id="lvSave">💾 Lưu & quét tiếp</button>')+'</div><div class="row" style="margin-top:8px"><button id="lvMan" style="background:#2b5fb8;color:#fff">✋ Đặt 4 góc thủ công</button></div>';
+  '<div class="row" style="margin-top:10px"><button id="lvAgain">↺ Quét lại</button>'+(isC2()?(e.length?'<button class="main" id="lvFix">✎ Sửa mã đề</button>':'<button class="main" id="lvNext">➡ Phiếu tiếp theo</button>'):e.length?'<button class="main" id="lvFix">✎ Sửa SBD / mã đề</button><button id="lvKho" style="background:#b26a00;color:#fff">📦 Vào Kho</button>':'<button class="main" id="lvSave">💾 Lưu & quét tiếp</button>')+'</div><div class="row" style="margin-top:8px"><button id="lvMan" style="background:#2b5fb8;color:#fff">✋ Đặt 4 góc thủ công</button></div>';
  if(navigator.vibrate)navigator.vibrate(e.length?[80,60,80]:120);
  const resume=(next)=>{box.classList.add('hide');L.paused=false;L.hold=0;L.last=null;L.needClear=!!next;liveMsg(next?'Đổi sang phiếu tiếp theo…':'Đưa phiếu vào khung…');};
- $('lvAgain').onclick=()=>resume(false);
+ $('lvAgain').onclick=()=>resume(false);bindTl(sh,'tlL');c2Hist(sh);if($('lvNext'))$('lvNext').onclick=()=>resume(true);
  $('lvMan').onclick=()=>{box.classList.add('hide');openManual(sh,true);};
  if($('lvKho'))$('lvKho').onclick=async()=>{const b=$('lvKho');b.disabled=true;b.textContent='Đang gửi…';try{await sendKho(sh);liveMsg('📦 Đã gửi vào Kho. Đổi sang phiếu tiếp theo…');resume(true);}catch(e){alert('Chưa gửi được: '+e.message);b.disabled=false;b.textContent='📦 Vào Kho';}};
  if($('lvFix'))$('lvFix').onclick=()=>{stopLive();renderRes();window.scrollTo(0,$('stepRes').offsetTop-60);};
  if($('lvSave'))$('lvSave').onclick=async()=>{$('lvSave').disabled=true;$('lvSave').textContent='Đang lưu…';
   if(S.saved[sh.sbd]&&!confirm('SBD '+sh.sbd+' đã có điểm. Lưu thay bản cũ?')){$('lvSave').disabled=false;$('lvSave').textContent='💾 Lưu & quét tiếp';return;}
   const ok=await saveQuiet(sh);if(ok)resume(true);else{$('lvSave').disabled=false;$('lvSave').textContent='💾 Thử lưu lại';}};
- if(!e.length&&!sh.warn.length&&$('autoSave').checked&&!S.saved[sh.sbd]){const ok=await saveQuiet(sh);if(ok){liveMsg('✔ Đã tự lưu SBD '+esc(sh.sbd)+' — '+esc(sh.score.diem)+' điểm. Đưa phiếu tiếp theo…');setTimeout(()=>resume(true),1500);}}
+ if(!isC2()&&!e.length&&!sh.warn.length&&$('autoSave').checked&&!S.saved[sh.sbd]){const ok=await saveQuiet(sh);if(ok){liveMsg('✔ Đã tự lưu SBD '+esc(sh.sbd)+' — '+esc(sh.score.diem)+' điểm. Đưa phiếu tiếp theo…');setTimeout(()=>resume(true),1500);}}
 }
 async function saveQuiet(sh){
  try{
@@ -756,6 +780,8 @@ $('camInput').onchange=e=>onPhoto(e.target.files[0]);
 $('galInput').onchange=e=>onPhoto(e.target.files[0]);
 $('barRetake').onclick=()=>{$('camInput').value='';$('camInput').click();};
 $('barSave').onclick=save;
+try{const m=localStorage.getItem('omrDtMode');if(m==='C2')document.querySelector('input[name=mode][value=C2]').checked=true;}catch(e){}
+document.querySelectorAll('input[name=mode]').forEach(r=>r.onchange=()=>{try{localStorage.setItem('omrDtMode',isC2()?'C2':'C1');}catch(e){}renderCheck();if(S.cur)renderRes();renderHist();});
 try{$('autoSave').checked=localStorage.getItem('omrDtAuto')==='1';}catch(e){}
 $('autoSave').onchange=()=>{try{localStorage.setItem('omrDtAuto',$('autoSave').checked?'1':'0');}catch(e){}};
 
