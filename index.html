@@ -269,8 +269,19 @@ function decodeIII(z,q0,A,R,overlay){
   if(v.ok)R.ans.III[q]=v.value;else{R.ans.III[q]='!'+chars.map(x=>x||'_').join('');R.warn.push('Phần III câu '+q+': '+v.reason+' (0 điểm).');}}
  return start+n;
 }
+/* Profile có nhiều vùng cùng phần bị khai báo TRÙNG số câu (vd 4 vùng Phần I đều là câu 1–10):
+   tự đánh số lại theo vị trí (trên→dưới, trái→phải) để không vùng nào ghi đè vùng khác. Chỉ sửa trong bộ nhớ trang. */
+function fixQ(P){if(!P||P._qfixed)return;P._qfixed=true;P._qnote=[];
+ const cnt=z=>{const g=geom(z),n=nQ(z);if(n)return n;if(z.type==='I')return g.rows;if(z.type==='II')return(g.cols%2===0&&g.cols>=2&&g.rows<=8)?g.cols/2:(g.cols===2?Math.max(1,Math.round(g.rows/4)):1);return Math.max(1,Math.round(g.cols/4));};
+ ['I','II','III'].forEach(t=>{const zs=(P.zones||[]).filter(z=>z.type===t);if(zs.length<2)return;
+  const used={};let dup=false;zs.forEach(z=>{const n=nQ(z);if(!n)return;for(let q=+z.qStart;q<=+z.qEnd;q++){if(used[q])dup=true;used[q]=1;}});
+  if(!dup)return;
+  const ord=zs.slice().sort((a,b)=>Math.abs(+a.y-+b.y)>0.03?(+a.y)-(+b.y):(+a.x)-(+b.x));let q=1;
+  ord.forEach(z=>{const n=cnt(z);z.qStart=q;z.qEnd=q+n-1;q+=n;});
+  P._qnote.push('Phần '+t+': các vùng trong Profile bị trùng số câu → tự đánh số lại 1–'+(q-1)+' theo vị trí. Nên sửa lại “câu bắt đầu – câu kết thúc” của từng vùng ở mục 6.');});
+}
 function decodeAll(A,overlay){
- const zones=S.prep.profile.zones||[],R={ans:{I:{},II:{},III:{}},warn:[],pos:{I:{},II:{},III:{}}};
+ fixQ(S.prep.profile);const zones=S.prep.profile.zones||[],R={ans:{I:{},II:{},III:{}},warn:[],pos:{I:{},II:{},III:{}}};
  const byX=t=>zones.filter(z=>z.type===t).sort((a,b)=>(+a.x)-(+b.x));
  R.sbd=decodeDigits(byX('SBD'),'SBD',A,R,overlay);
  R.maDe=decodeDigits(byX('MA_DE'),'Mã đề',A,R,overlay);
