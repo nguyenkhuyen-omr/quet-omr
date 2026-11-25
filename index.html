@@ -395,7 +395,7 @@ async function annotate(sh){
  const sc=Math.min(1,1700/Math.max(src.width,src.height)),cv=document.createElement('canvas');
  cv.width=Math.round(src.width*sc);cv.height=Math.round(src.height*sc);const c=cv.getContext('2d');c.drawImage(src,0,0,cv.width,cv.height);
  const u=cv.width/600,score=sh.score||{};
- const tick=(x,y,ok)=>{c.save();c.lineWidth=2.2*u;c.lineCap='round';c.strokeStyle=ok?'#1556d6':'#e01b1b';c.beginPath();
+ const tick=(x,y,ok)=>{c.save();c.lineWidth=2.2*u;c.lineCap='round';c.strokeStyle=ok?'#12a150':'#e01b1b';c.beginPath();
   if(ok){c.moveTo(x,y);c.lineTo(x+3*u,y+4*u);c.lineTo(x+10*u,y-6*u);}else{c.moveTo(x,y-5*u);c.lineTo(x+9*u,y+4*u);c.moveTo(x+9*u,y-5*u);c.lineTo(x,y+4*u);}c.stroke();c.restore();};
  const at=cell=>({x:(cell.x+cell.rx*1.3)*sc,y:cell.y*sc});
  if(R&&score.chiTiet){
@@ -411,7 +411,7 @@ async function annotate(sh){
  // khung điểm góc trên trái
  const st=S.roster[sh.sbd]||{},II=(score.chiTiet||[]).filter(r=>r[0]==='II').map(r=>String(r[4]).split('/')[0]);
  const lines=[st.ten||'','Môn: '+(S.prep.exam.mon||'')+(S.prep.exam.ten?' · '+S.prep.exam.ten:''),'Số BD: '+sh.sbd+(st.lop?' · Lớp: '+st.lop:''),'Mã đề: '+sh.maDe,'P1: '+(score.p1??'')+' đ'+(score.tk?' ('+score.tk.I.dung+' câu đúng)':''),'P2: '+(score.p2??'')+' đ'+(II.length?' (Số ý đúng: '+II.join(',')+')':''),'P3: '+(score.p3??'')+' đ','—————————————','Tổng điểm: '+(score.diem??'')+' / '+(thangHienTai())];
- if(sh.edited)lines.push('(Có chỉnh sửa tay khi duyệt)');lines.push('(✓ xanh: đúng · ✗ đỏ: sai)');
+ if(sh.edited)lines.push('(Có chỉnh sửa tay khi duyệt)');lines.push('(✓ xanh lá: đúng · ✗ đỏ: sai)');
  const fs=Math.round(8.5*u),lh=fs*1.35;c.font=fs+'px Arial';const bw=Math.max(...lines.map(t=>c.measureText(t).width))+fs*1.4,bh=lines.length*lh+fs;
  c.fillStyle='rgba(255,255,255,.96)';c.fillRect(4*u,4*u,bw,bh);c.strokeStyle='#e01b1b';c.lineWidth=2*u;c.strokeRect(4*u,4*u,bw,bh);
  c.fillStyle='#14389a';lines.forEach((t,i)=>{c.font=(i===0||/^Tổng/.test(t)?'bold ':'')+fs+'px Arial';c.fillText(t,4*u+fs*.7,4*u+fs*.4+lh*(i+0.85));});
