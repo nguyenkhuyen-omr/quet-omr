@@ -615,9 +615,12 @@ async function mauGet(id){const k='omrDtMau_'+id;try{const m=await gas('omrDtLay
 async function mauList(){if(S.maus)return S.maus;S.maus=await gas('omrDtDsMau');return S.maus;}
 function baiListView(){S.bai=null;S.prep=null;S.roster={};show('stepCam',false);show('stepDA',false);show('stepRes',false);show('bar',false);
  const a=baiAll();$('baiBox').innerHTML='<label>📚 Bài chấm của tôi ('+a.length+')</label>'+
-  (a.length?a.map(b=>'<div class="bai"><div><b>'+esc(b.ten)+'</b><br><small>'+esc(b.ky)+(b.lop?' · Lớp '+esc(b.lop):'')+' · '+esc(b.mauTen||'')+' · '+(b.kq||[]).length+' bài đã chấm · '+Object.keys(b.codes||{}).length+' mã đề</small></div><button type="button" class="main" data-mo="'+esc(b.id)+'" style="flex:none">Mở</button></div>').join(''):'<p class="muted">Chưa có bài chấm nào.</p>')+
+  (a.length?a.map(b=>'<div class="bai"><div><b>'+esc(b.ten)+'</b><br><small>'+esc(b.ky)+(b.lop?' · Lớp '+esc(b.lop):'')+' · '+esc(b.mauTen||'')+' · '+(b.kq||[]).length+' bài đã chấm · '+Object.keys(b.codes||{}).length+' mã đề</small></div><button type="button" class="main" data-mo="'+esc(b.id)+'" style="flex:none">Mở</button><button type="button" class="red" data-xb="'+esc(b.id)+'" style="flex:none;padding:8px 10px" title="Xoá bài chấm">🗑</button></div>').join(''):'<p class="muted">Chưa có bài chấm nào.</p>')+
   '<button type="button" class="main" id="baiNew" style="width:100%;margin-top:6px">＋ Tạo bài chấm mới</button>';
- $('baiNew').onclick=()=>baiForm(null);$('baiBox').querySelectorAll('[data-mo]').forEach(x=>x.onclick=()=>baiOpen(x.dataset.mo));renderHist();}
+ $('baiNew').onclick=()=>baiForm(null);$('baiBox').querySelectorAll('[data-mo]').forEach(x=>x.onclick=()=>baiOpen(x.dataset.mo));
+ $('baiBox').querySelectorAll('[data-xb]').forEach(x=>x.onclick=()=>{const b=baiAll().find(y=>y.id===x.dataset.xb);if(b)baiXoa(b);});renderHist();}
+function baiXoa(b){if(!confirm('Xoá bài chấm "'+b.ten+'" cùng '+(b.kq||[]).length+' kết quả và ảnh bài làm trên máy này?\nNên Mở bài → ⬇ Xuất kết quả trước khi xoá.'))return;
+ if((prompt('Gõ XOA để xác nhận xoá "'+b.ten+'"')||'').trim().toUpperCase()!=='XOA')return;anhXoaBai(b.id);baiPutAll(baiAll().filter(x=>x.id!==b.id));baiListView();}
 async function baiForm(b){const isNew=!b;b=b||{id:'B'+Date.now().toString(36),ten:'',ky:'TX1',lop:'',mauId:'',mauTen:'',sbd:true,cau:{nI:12,dI:0.25,nII:4,ii:[0.1,0.25,0.5,1],nIII:6,dIII:0.25,lamTron:'none'},codes:{},kq:[],tao:new Date().toISOString()};
  const c=b.cau;$('baiBox').innerHTML='<label>'+(isNew?'＋ Tạo bài chấm mới':'✏️ Sửa bài chấm')+'</label>'+
   '<label style="margin-top:6px">1. Tên bài</label><input type="text" id="bTen" value="'+esc(b.ten)+'" placeholder="vd Kiểm tra TX1 Toán 10A1">'+
@@ -661,7 +664,7 @@ function baiMenu(){const b=S.bai,c=b.cau,nCode=Object.keys(b.codes||{}).length;
  $('mDA').onclick=()=>{show('stepDA',true);$('daEd').classList.add('hide');daOpen();$('stepDA').scrollIntoView({behavior:'smooth'});};
  $('mCham').onclick=()=>{if(!nCode){alert('Nhập đáp án trước.');$('mDA').click();return;}show('stepCam',true);$('stepCam').scrollIntoView({behavior:'smooth'});};
  $('mPhieu').onclick=()=>taiPhieuIn(b.mauId,b.mauTen,null);$('mKq').onclick=baiKq;$('mDs').onclick=baiDs;$('mBd').onclick=baiBd;$('mXuat').onclick=baiCsv;$('mTk').onclick=baiTk;$('mSua').onclick=()=>baiForm(JSON.parse(JSON.stringify(b)));
- $('mXoa').onclick=()=>{if(!confirm('Xoá bài chấm "'+b.ten+'" cùng '+(b.kq||[]).length+' kết quả trên máy này?\nNên Xuất kết quả trước khi xoá.'))return;if(prompt('Gõ XOA để xác nhận')!=='XOA')return;anhXoaBai(b.id);baiPutAll(baiAll().filter(x=>x.id!==b.id));baiListView();};
+ $('mXoa').onclick=()=>baiXoa(b);
  show('stepDA',false);show('stepCam',!!nCode);renderHist();}
 function baiKq(){const b=S.bai,a=b.kq||[];$('baiView').innerHTML='<h3 style="margin:10px 0 4px">Bài đã chấm ('+a.length+')</h3>'+(a.length?'<table class="kq"><tr><th>#</th><th>'+(b.sbd?'SBD':'')+'</th><th>Mã đề</th><th>TN</th><th>TL</th><th>Tổng</th><th></th></tr>'+
   a.map((r,i)=>'<tr><td>'+(a.length-i)+'</td><td style="text-align:left">'+esc(b.sbd?r.sbd:'')+(S.roster[r.sbd]?'<br><small>'+esc(S.roster[r.sbd].ten)+'</small>':'')+'</td><td>'+esc(r.maDe)+'</td><td><b>'+esc(r.diem)+'</b></td><td><input type="text" inputmode="decimal" data-tl="'+i+'" value="'+esc(r.tl||'')+'" style="width:60px;padding:6px"></td><td data-tg="'+i+'"><b>'+esc(r.tong||'')+'</b></td><td style="white-space:nowrap"><button type="button" data-xa="'+i+'" style="padding:6px 8px">🖼</button> <button type="button" data-xk="'+i+'" style="padding:6px 10px">✕</button></td></tr>').join('')+'</table>':'<p class="muted">Chưa chấm bài nào.</p>');
