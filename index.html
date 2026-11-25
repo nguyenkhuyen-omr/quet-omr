@@ -90,6 +90,7 @@ img.prev{width:100%;border:1px solid #ccd8d0;border-radius:8px;margin-top:8px}
  <div id="daEd" class="hide">
   <div class="row" style="margin-top:8px"><div><label>Mã đề</label><select id="daCode"></select></div><div><label>Thêm mã đề</label><div class="row"><input type="text" id="daNew" inputmode="numeric" placeholder="vd 101"><button type="button" id="daAdd" style="flex:none">＋</button></div></div></div>
   <div class="row" style="margin-top:6px"><button type="button" id="daCopy">⧉ Chép từ mã đề khác</button><button type="button" id="daDel" class="red">🗑 Bỏ mã đề này</button></div>
+  <div class="row" style="margin-top:6px"><button type="button" id="daXlsBtn">📥 Nhập đáp án từ file Excel</button><button type="button" id="daMau" style="flex:none">⬇ File mẫu</button></div><input type="file" id="daXls" accept=".xlsx,.xls,.csv" class="hide"><div id="daXlsMsg" class="muted"></div>
   <div class="da-sec">Gõ nhanh Phần I (từ câu 1)</div><div class="row"><input type="text" id="daFast" placeholder="vd ABCDDCBA..." style="text-transform:uppercase"><button type="button" id="daFastGo" style="flex:none">Điền</button></div>
   <div id="daForm"></div>
   <div id="daWBox"><div class="da-sec">Điểm</div>
@@ -649,12 +650,13 @@ function baiMenu(){const b=S.bai,c=b.cau,nCode=Object.keys(b.codes||{}).length;
  $('mDA').onclick=()=>{show('stepDA',true);$('daEd').classList.add('hide');daOpen();$('stepDA').scrollIntoView({behavior:'smooth'});};
  $('mCham').onclick=()=>{if(!nCode){alert('Nhập đáp án trước.');$('mDA').click();return;}show('stepCam',true);$('stepCam').scrollIntoView({behavior:'smooth'});};
  $('mKq').onclick=baiKq;$('mDs').onclick=baiDs;$('mBd').onclick=baiBd;$('mXuat').onclick=baiCsv;$('mTk').onclick=baiTk;$('mSua').onclick=()=>baiForm(JSON.parse(JSON.stringify(b)));
- $('mXoa').onclick=()=>{if(!confirm('Xoá bài chấm "'+b.ten+'" cùng '+(b.kq||[]).length+' kết quả trên máy này?\nNên Xuất kết quả trước khi xoá.'))return;if(prompt('Gõ XOA để xác nhận')!=='XOA')return;baiPutAll(baiAll().filter(x=>x.id!==b.id));baiListView();};
+ $('mXoa').onclick=()=>{if(!confirm('Xoá bài chấm "'+b.ten+'" cùng '+(b.kq||[]).length+' kết quả trên máy này?\nNên Xuất kết quả trước khi xoá.'))return;if(prompt('Gõ XOA để xác nhận')!=='XOA')return;anhXoaBai(b.id);baiPutAll(baiAll().filter(x=>x.id!==b.id));baiListView();};
  show('stepDA',false);show('stepCam',!!nCode);renderHist();}
 function baiKq(){const b=S.bai,a=b.kq||[];$('baiView').innerHTML='<h3 style="margin:10px 0 4px">Bài đã chấm ('+a.length+')</h3>'+(a.length?'<table class="kq"><tr><th>#</th><th>'+(b.sbd?'SBD':'')+'</th><th>Mã đề</th><th>TN</th><th>TL</th><th>Tổng</th><th></th></tr>'+
-  a.map((r,i)=>'<tr><td>'+(a.length-i)+'</td><td style="text-align:left">'+esc(b.sbd?r.sbd:'')+(S.roster[r.sbd]?'<br><small>'+esc(S.roster[r.sbd].ten)+'</small>':'')+'</td><td>'+esc(r.maDe)+'</td><td><b>'+esc(r.diem)+'</b></td><td><input type="text" inputmode="decimal" data-tl="'+i+'" value="'+esc(r.tl||'')+'" style="width:60px;padding:6px"></td><td data-tg="'+i+'"><b>'+esc(r.tong||'')+'</b></td><td><button type="button" data-xk="'+i+'" style="padding:6px 10px">✕</button></td></tr>').join('')+'</table>':'<p class="muted">Chưa chấm bài nào.</p>');
+  a.map((r,i)=>'<tr><td>'+(a.length-i)+'</td><td style="text-align:left">'+esc(b.sbd?r.sbd:'')+(S.roster[r.sbd]?'<br><small>'+esc(S.roster[r.sbd].ten)+'</small>':'')+'</td><td>'+esc(r.maDe)+'</td><td><b>'+esc(r.diem)+'</b></td><td><input type="text" inputmode="decimal" data-tl="'+i+'" value="'+esc(r.tl||'')+'" style="width:60px;padding:6px"></td><td data-tg="'+i+'"><b>'+esc(r.tong||'')+'</b></td><td style="white-space:nowrap"><button type="button" data-xa="'+i+'" style="padding:6px 8px">🖼</button> <button type="button" data-xk="'+i+'" style="padding:6px 10px">✕</button></td></tr>').join('')+'</table>':'<p class="muted">Chưa chấm bài nào.</p>');
  $('baiView').querySelectorAll('[data-tl]').forEach(x=>x.oninput=()=>{const r=a[+x.dataset.tl];r.tl=x.value;if(r.sbd){b.tl=b.tl||{};b.tl[r.sbd]=r.tl;}r.tong=kqTong(r);$('baiView').querySelector('[data-tg="'+x.dataset.tl+'"]').innerHTML='<b>'+esc(r.tong)+'</b>';baiPersist();});
- $('baiView').querySelectorAll('[data-xk]').forEach(x=>x.onclick=()=>{if(!confirm('Xoá kết quả này?'))return;a.splice(+x.dataset.xk,1);baiPersist();baiKq();renderHist();});}
+ $('baiView').querySelectorAll('[data-xa]').forEach(x=>x.onclick=()=>xemAnh(a[+x.dataset.xa]));
+ $('baiView').querySelectorAll('[data-xk]').forEach(x=>x.onclick=()=>{if(!confirm('Xoá kết quả này (cả ảnh bài làm)?'))return;const o=a[+x.dataset.xk];if(o&&o.k)anhXoa(S.bai.id+'|'+o.k);a.splice(+x.dataset.xk,1);baiPersist();baiKq();renderHist();});}
 function baiCsv(){const b=S.bai,a=(b.kq||[]).slice().reverse();if(!a.length){alert('Chưa có kết quả.');return;}
  const rows=[['STT','SBD','Mã đề','Điểm TN','Phần I','Phần II','Phần III','Số câu/ý đúng','Sai','Điểm TL','Tổng','Thời gian']].concat(a.map((r,i)=>[i+1,r.sbd,r.maDe,r.diem,r.p1,r.p2,r.p3,r.dung,r.sai,r.tl||'',r.tong||'',r.t]));
  const csv='﻿'+rows.map(r=>r.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const el=document.createElement('a');el.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));el.download=(b.ten||'BAI_CHAM').replace(/[^\wÀ-ỹ]+/g,'_')+'_'+stamp()+'.csv';document.body.appendChild(el);el.click();el.remove();}
@@ -702,18 +704,71 @@ function baiBang(){const b=S.bai,kq=b.kq||[],latest={};kq.slice().reverse().forE
 function tong2(tn,tl){const a=parseFloat(String(tn).replace(',','.')),c=parseFloat(String(tl).replace(',','.'));return isNaN(a)&&isNaN(c)?'':String(Math.round(((isNaN(a)?0:a)+(isNaN(c)?0:c))*100)/100).replace('.',',');}
 function baiBd(){const b=S.bai,rows=baiBang(),co=rows.filter(x=>x.r).length;
  $('baiView').innerHTML='<h3 style="margin:10px 0 4px">📋 Bảng điểm lớp</h3><div class="chips">'+((b.ds||[]).length?b.ds.length+' HS trong danh sách · ':'')+co+' bài đã chấm TN · gõ điểm TL vào cột TL (tự lưu)</div>'+
-  (rows.length?'<table class="kq"><tr><th>#</th><th style="text-align:left">SBD · Họ tên</th><th>TN</th><th>TL</th><th>Tổng</th></tr>'+rows.map((x,i)=>'<tr'+(x.ngoai?' style="background:#fff7e0"':x.r?'':' style="color:#8a8f8c"')+'><td>'+(i+1)+'</td><td style="text-align:left">'+esc(x.sbd)+'<br><small>'+esc(x.ten)+'</small></td><td><b>'+esc(x.tn===''?'—':x.tn)+'</b></td><td><input type="text" inputmode="decimal" data-btl="'+i+'" value="'+esc(x.tl)+'" style="width:58px;padding:6px"'+(x.sbd?'':' disabled')+'></td><td data-btg="'+i+'"><b>'+esc(x.tong)+'</b></td></tr>').join('')+'</table>':'<p class="muted">Chưa có danh sách lớp và chưa chấm bài nào.</p>')+
+  (rows.length?'<table class="kq"><tr><th>#</th><th style="text-align:left">SBD · Họ tên</th><th>TN</th><th>TL</th><th>Tổng</th><th>Ảnh</th></tr>'+rows.map((x,i)=>'<tr'+(x.ngoai?' style="background:#fff7e0"':x.r?'':' style="color:#8a8f8c"')+'><td>'+(i+1)+'</td><td style="text-align:left">'+esc(x.sbd)+'<br><small>'+esc(x.ten)+'</small></td><td><b>'+esc(x.tn===''?'—':x.tn)+'</b></td><td><input type="text" inputmode="decimal" data-btl="'+i+'" value="'+esc(x.tl)+'" style="width:58px;padding:6px"'+(x.sbd?'':' disabled')+'></td><td data-btg="'+i+'"><b>'+esc(x.tong)+'</b></td><td>'+(x.r?'<button type="button" data-ba="'+i+'" style="padding:6px 8px">🖼</button>':'')+'</td></tr>').join('')+'</table>':'<p class="muted">Chưa có danh sách lớp và chưa chấm bài nào.</p>')+
   '<button type="button" class="main" id="bdCsv" style="width:100%;margin-top:8px">⬇ Xuất bảng điểm lớp (Excel/CSV)</button>';
  $('baiView').querySelectorAll('[data-btl]').forEach(inp=>inp.oninput=()=>{const x=rows[+inp.dataset.btl];if(!x.sbd)return;b.tl=b.tl||{};b.tl[x.sbd]=inp.value;if(x.r){x.r.tl=inp.value;x.r.tong=kqTong(x.r);}
   $('baiView').querySelector('[data-btg="'+inp.dataset.btl+'"]').innerHTML='<b>'+tong2(x.tn,inp.value)+'</b>';baiPersist();});
+ $('baiView').querySelectorAll('[data-ba]').forEach(x=>x.onclick=()=>xemAnh(rows[+x.dataset.ba].r));
  $('bdCsv').onclick=()=>{const r2=baiBang();const out=[['STT','SBD','Họ và tên','Lớp','Mã đề','Điểm TN','Điểm TL','Tổng','Ghi chú']].concat(r2.map((x,i)=>[i+1,x.sbd,x.ten,x.lop,x.r?x.r.maDe:'',x.tn,x.tl,x.tong,x.r?'':'Chưa có bài TN']));
   const csv='﻿'+out.map(r=>r.map(v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"').join(',')).join('\r\n');const el=document.createElement('a');el.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));el.download='BANG_DIEM_'+(b.ten||'').replace(/[^\wÀ-ỹ]+/g,'_')+'_'+stamp()+'.csv';document.body.appendChild(el);el.click();el.remove();};}
 function baiLuuKq(sh){if(!S.bai||!sh.score)return;const b=S.bai;b.kq=b.kq||[];
- let r=sh._kq;if(!r){if(b.sbd&&sh.sbd&&/^\d+$/.test(sh.sbd)){const i=b.kq.findIndex(x=>x.sbd===sh.sbd);if(i>=0&&confirm('SBD '+sh.sbd+' đã chấm trước đó ('+b.kq[i].diem+' điểm). Thay bằng kết quả mới?'))b.kq.splice(i,1);}
-  r={t:new Date().toLocaleString('vi-VN'),sbd:b.sbd?sh.sbd:'',tl:''};b.kq.unshift(r);sh._kq=r;}
+ let r=sh._kq;if(!r){if(b.sbd&&sh.sbd&&/^\d+$/.test(sh.sbd)){const i=b.kq.findIndex(x=>x.sbd===sh.sbd);if(i>=0&&confirm('SBD '+sh.sbd+' đã chấm trước đó ('+b.kq[i].diem+' điểm). Thay bằng kết quả mới?')){const old=b.kq.splice(i,1)[0];if(old&&old.k)anhXoa(b.id+'|'+old.k);}}
+  r={k:Date.now().toString(36)+Math.random().toString(36).slice(2,6),t:new Date().toLocaleString('vi-VN'),sbd:b.sbd?sh.sbd:'',tl:''};b.kq.unshift(r);sh._kq=r;}
+ if(!r.k)r.k=Date.now().toString(36)+Math.random().toString(36).slice(2,6);
  if(b.sbd)r.sbd=sh.sbd;if(r.sbd&&b.tl&&b.tl[r.sbd]&&!sh.tl)sh.tl=b.tl[r.sbd];
  Object.assign(r,{maDe:sh.maDe,diem:sh.score.diem,p1:sh.score.p1,p2:sh.score.p2,p3:sh.score.p3,dung:sh.score.tong.dung,sai:sh.score.tong.sai,ans:sh.answers,tl:sh.tl||r.tl||''});if(r.sbd&&r.tl){b.tl=b.tl||{};b.tl[r.sbd]=r.tl;}r.tong=kqTong(r);
- baiPersist();renderHist();}
+ baiPersist();renderHist();
+ if(sh.A&&sh.A.ok&&sh._anhDa!==sh.score.diem+'|'+sh.sbd){sh._anhDa=sh.score.diem+'|'+sh.sbd;const key=b.id+'|'+r.k;
+  (async()=>{try{const u=sh.preview||await annotate(sh);sh.preview=u;await anhPut(key,await nenAnh(u));r.anh=1;baiPersist();}catch(e){console.warn('Không lưu được ảnh',e);}})();}}
+
+/* ---------- Ảnh bài làm lưu trên điện thoại (IndexedDB) ---------- */
+let IDB_P=null;
+function idb(){if(IDB_P)return IDB_P;IDB_P=new Promise((ok,no)=>{try{const q=indexedDB.open('omrDtAnh',1);q.onupgradeneeded=()=>q.result.createObjectStore('anh');q.onsuccess=()=>ok(q.result);q.onerror=()=>no(q.error);}catch(e){no(e);}});return IDB_P;}
+async function anhPut(k,blob){const db=await idb();return new Promise((ok,no)=>{const t=db.transaction('anh','readwrite');t.objectStore('anh').put(blob,k);t.oncomplete=ok;t.onerror=()=>no(t.error);});}
+async function anhGet(k){const db=await idb();return new Promise((ok,no)=>{const q=db.transaction('anh').objectStore('anh').get(k);q.onsuccess=()=>ok(q.result||null);q.onerror=()=>no(q.error);});}
+async function anhXoa(k){try{const db=await idb();db.transaction('anh','readwrite').objectStore('anh').delete(k);}catch(e){}}
+async function anhXoaBai(id){try{const db=await idb();const st=db.transaction('anh','readwrite').objectStore('anh');st.delete(IDBKeyRange.bound(id+'|',id+'|\uffff'));}catch(e){}}
+function nenAnh(u){return new Promise((ok,no)=>{const im=new Image();im.onload=()=>{const k=Math.min(1,1200/Math.max(im.width,im.height)),c=document.createElement('canvas');c.width=Math.round(im.width*k);c.height=Math.round(im.height*k);c.getContext('2d').drawImage(im,0,0,c.width,c.height);c.toBlob(b=>b?ok(b):no(new Error('Không nén được ảnh')),'image/jpeg',.62);};im.onerror=()=>no(new Error('Ảnh lỗi'));im.src=u;});}
+async function xemAnh(r){const b=S.bai;let blob=null;try{blob=r.k?await anhGet(b.id+'|'+r.k):null;}catch(e){}
+ if(!blob){alert('Không có ảnh bài làm của bài này trên máy (bài chấm trước khi có tính năng lưu ảnh, hoặc dữ liệu trình duyệt đã bị xoá).');return;}
+ const url=URL.createObjectURL(blob),st=S.roster[r.sbd]||{},ten=(r.sbd||'bai')+(st.ten?'_'+st.ten:'');
+ const ov=document.createElement('div');ov.style.cssText='position:fixed;inset:0;background:#000d;z-index:99;overflow:auto;padding:10px;text-align:center';
+ ov.innerHTML='<div style="color:#fff;margin:4px 0 8px"><b>'+esc(st.ten||'')+'</b> · SBD '+esc(r.sbd||'—')+' · Mã đề '+esc(r.maDe)+' · <b>'+esc(r.diem)+'</b> điểm</div><img src="'+url+'" style="max-width:100%;background:#fff"><div class="row" style="margin:10px auto;max-width:480px"><a class="btn" download="'+esc(ten.replace(/[^\wÀ-ỹ]+/g,'_'))+'.jpg" href="'+url+'" style="flex:1;background:#176b43;color:#fff;border-radius:12px;padding:14px;text-decoration:none;font-weight:bold">⬇ Lưu ảnh về máy</a><button type="button" id="ovClose">Đóng</button></div>';
+ document.body.appendChild(ov);$('ovClose').onclick=()=>{ov.remove();URL.revokeObjectURL(url);};}
+
+/* ---------- Nhập đáp án từ file Excel ---------- */
+function dapAnMau(){const T=structure(),qs=o=>Object.keys(o).sort((a,b)=>(+a)-(+b));const h=['Mã đề'].concat(qs(T.I).map(q=>'I.'+q),qs(T.II).map(q=>'II.'+q),qs(T.III).map(q=>'III.'+q));
+ const vd=['101'].concat(qs(T.I).map((q,i)=>'ABCD'[i%4]),qs(T.II).map(()=>'ĐSĐS'),qs(T.III).map(()=>'2,5'));
+ const csv='\ufeff'+[h,vd].map(r=>r.map(v=>'"'+v+'"').join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='MAU_DAP_AN.csv';document.body.appendChild(a);a.click();a.remove();}
+function vnHoa(v){return String(v==null?'':v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toUpperCase().trim();}
+function dsTF(v){return vnHoa(v).replace(/[^A-Z01]/g,'').split('').map(c=>/[DT1]/.test(c)?'D':/[SF0]/.test(c)?'S':'').filter(Boolean);}
+function docDapAn(data){
+ for(let r=0;r<Math.min(20,data.length);r++){const row=(data[r]||[]).map(v=>vnHoa(v));const iMa=row.findIndex(x=>/^MA ?DE( THI)?$/.test(x)||x==='MADE');if(iMa<0)continue;
+  const codes={},add=m=>codes[m]=codes[m]||{I:{},II:{},III:{}};
+  const iP=row.findIndex(x=>/^PHAN$/.test(x)),iC=row.findIndex(x=>/^CAU( SO)?$/.test(x)),iY=row.findIndex(x=>/^(Y|STT Y|Y SO)$/.test(x)),iD=row.findIndex(x=>/^DAP AN$/.test(x));
+  if(iP>=0&&iC>=0&&iD>=0){ // dạng dọc: Mã đề | Phần | Câu | (Ý) | Đáp án
+   data.slice(r+1).forEach(x=>{if(!x)return;const m=cellT(x[iMa]);if(!m)return;const p=vnHoa(x[iP]).replace(/^PHAN ?/,''),q=String(parseInt(cellT(x[iC]))||''),d=cellT(x[iD]);if(!q||d==='')return;const c=add(m);
+    const P=/^(I|1)$/.test(p)?'I':/^(II|2)$/.test(p)?'II':/^(III|3)$/.test(p)?'III':'';
+    if(P==='I')c.I[q]=vnHoa(d).slice(0,1);else if(P==='III')c.III[q]=String(d).replace('.',',');
+    else if(P==='II'){const y=iY>=0?cellT(x[iY]):'';const k=/^[a-dA-D]$/.test(y)?'abcd'.indexOf(y.toLowerCase()):(parseInt(y)||0)-1;c.II[q]=c.II[q]||['','','',''];if(k>=0&&k<4)c.II[q][k]=dsTF(d)[0]||'';else dsTF(d).slice(0,4).forEach((v,i)=>c.II[q][i]=v);}});
+   return codes;}
+  const cols=row.map((x,i)=>{let mm=x.match(/^(?:PHAN ?)?(III|II|I|P[123]|[123])\s*[.\-_/ ]\s*(?:CAU ?)?(\d+)$/);if(mm){const p=mm[1].replace('P','');return{i,P:p==='1'||p==='I'?'I':p==='2'||p==='II'?'II':'III',q:String(+mm[2])};}
+   mm=x.match(/^(?:CAU ?)?(\d+)$/);return mm&&i!==iMa?{i,P:'I',q:String(+mm[1])}:null;}).filter(Boolean);
+  if(!cols.length)continue;
+  data.slice(r+1).forEach(x=>{if(!x)return;const m=cellT(x[iMa]);if(!m)return;const c=add(m);cols.forEach(o=>{const v=x[o.i];if(v===''||v==null)return;
+   if(o.P==='I'){const L=vnHoa(v).slice(0,1);if(/[ABCD]/.test(L))c.I[o.q]=L;}else if(o.P==='II'){const a=dsTF(v);if(a.length)c.II[o.q]=[0,1,2,3].map(i=>a[i]||'S');}else c.III[o.q]=(typeof v==='number'?String(v):cellT(v)).replace('.',',');});});
+  return codes;}
+ throw new Error('Không thấy dòng tiêu đề có cột "Mã đề". Bấm ⬇ File mẫu để xem cách ghi.');}
+async function nhapDapAnFile(f){$('daXlsMsg').textContent='Đang đọc file…';
+ try{let data;if(/\.csv$/i.test(f.name)){const t=(await f.text()).replace(/^\ufeff/,''),first=t.split(/\r?\n/)[0]||'',sep=first.split(';').length>first.split(',').length?';':',';data=t.split(/\r?\n/).filter(x=>x.trim()).map(l=>{const o=[];let v='',q=false;for(let i=0;i<l.length;i++){const c=l[i];if(c==='"'&&q&&l[i+1]==='"'){v+='"';i++;}else if(c==='"')q=!q;else if(c===sep&&!q){o.push(v);v='';}else v+=c;}o.push(v);return o;});}
+  else{await loadXlsx();const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});data=null;for(const n of wb.SheetNames){const d=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:'',raw:true});try{docDapAn(d);data=d;break;}catch(_){}}if(!data)data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:true});}
+  const codes=docDapAn(data),ms=Object.keys(codes);if(!ms.length)throw new Error('File không có mã đề nào.');
+  const dem=ms.map(m=>{const c=codes[m];return m+' ('+Object.keys(c.I).length+'/'+Object.keys(c.II).length+'/'+Object.keys(c.III).length+')';});
+  if(!confirm('Đọc được '+ms.length+' mã đề — số câu Phần I/II/III:\n'+dem.join('\n')+'\n\nĐưa vào bộ đáp án (mã đề trùng sẽ được thay)? Sau đó kiểm tra rồi bấm 💾 Lưu.'))return;
+  ms.forEach(m=>DA.codes[m]=codes[m]);DA.cur=ms[0];DA.dirty=true;daCodes();daSum();
+  $('daXlsMsg').innerHTML='<span class="ok">✔ Đã đưa '+ms.length+' mã đề vào. Kiểm tra từng mã đề rồi bấm <b>💾 Lưu đáp án</b>.</span>';}
+ catch(e){$('daXlsMsg').innerHTML='<span class="bad">'+esc(e.message)+'</span>';}}
+$('daXlsBtn').onclick=()=>$('daXls').click();$('daXls').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)nhapDapAnFile(f);};$('daMau').onclick=dapAnMau;
 
 /* ================= GIAO DIỆN ================= */
 function show(id,on){$(id).classList.toggle('hide',!on);}
