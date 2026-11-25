@@ -76,10 +76,11 @@ img.prev{width:100%;border:1px solid #ccd8d0;border-radius:8px;margin-top:8px}
  <select id="examSelect"><option value="">Đang tải…</option></select></div>
  <div style="margin-top:10px"><b>Cách chấm</b>
   <label style="font-weight:normal;display:flex;gap:8px;align-items:flex-start;margin:6px 0"><input type="radio" name="mode" value="C1" checked> <span><b>C1 · Chấm &amp; LƯU điểm</b> — cần đáp án + danh sách thí sinh. Máy hiện tên HS, lưu điểm vào hệ thống.</span></label>
-  <label style="font-weight:normal;display:flex;gap:8px;align-items:flex-start;margin:6px 0"><input type="radio" name="mode" value="C3"> <span><b>C3 · BÀI CHẤM CỦA TÔI (trên điện thoại)</b> — GV tự tạo bài chấm: tên bài (TX1, Giữa HK1…), chọn <b>mẫu phiếu</b>, cấu trúc đề &amp; điểm, nhập đáp án, quét chấm, xem bài đã chấm, thống kê, xuất Excel. Lưu trên điện thoại, không cần đợt chấm / danh sách.</span></label>
   <label style="font-weight:normal;display:flex;gap:8px;align-items:flex-start;margin:6px 0"><input type="radio" name="mode" value="C2"> <span><b>C2 · Chỉ CHẤM XEM ĐIỂM</b> — chỉ cần đáp án, không cần danh sách. Máy hiện điểm TN để GV ghi tay lên bài, nhập điểm Tự luận → ra Tổng điểm. Không lưu gì lên hệ thống.</span></label>
+  <label style="font-weight:normal;display:flex;gap:8px;align-items:flex-start;margin:6px 0"><input type="radio" name="mode" value="C3"> <span><b>C3 · BÀI CHẤM CỦA TÔI (trên điện thoại)</b> — GV tự tạo bài chấm: tên bài (TX1, Giữa HK1…), chọn <b>mẫu phiếu</b>, cấu trúc đề &amp; điểm, nhập đáp án, quét chấm, xem bài đã chấm, thống kê, xuất Excel. Lưu trên điện thoại, không cần đợt chấm / danh sách.</span></label>
  </div>
  <div id="checkList" class="checks muted" style="margin-top:8px"></div>
+ <div id="dotPhieuBox" class="hide" style="margin-top:8px"><button type="button" id="dotPhieu">🖨 Tải phiếu trả lời trống của đợt (in / photo)</button><div id="dotPhieuMsg" class="muted"></div></div>
 </section>
 
 <section class="card hide" id="stepBai"><div id="baiBox"></div></section>
@@ -90,7 +91,7 @@ img.prev{width:100%;border:1px solid #ccd8d0;border-radius:8px;margin-top:8px}
  <div id="daEd" class="hide">
   <div class="row" style="margin-top:8px"><div><label>Mã đề</label><select id="daCode"></select></div><div><label>Thêm mã đề</label><div class="row"><input type="text" id="daNew" inputmode="numeric" placeholder="vd 101"><button type="button" id="daAdd" style="flex:none">＋</button></div></div></div>
   <div class="row" style="margin-top:6px"><button type="button" id="daCopy">⧉ Chép từ mã đề khác</button><button type="button" id="daDel" class="red">🗑 Bỏ mã đề này</button></div>
-  <div class="row" style="margin-top:6px"><button type="button" id="daXlsBtn">📥 Nhập đáp án từ file Excel</button><button type="button" id="daMau" style="flex:none">⬇ File mẫu</button></div><input type="file" id="daXls" accept=".xlsx,.xls,.csv" class="hide"><div id="daXlsMsg" class="muted"></div>
+  <div class="row" style="margin-top:6px"><button type="button" id="daXlsBtn">📥 Nhập đáp án từ file Excel</button><button type="button" id="daMau" style="flex:none">⬇ File mẫu (dọc + ngang)</button></div><input type="file" id="daXls" accept=".xlsx,.xls,.csv" class="hide"><div id="daXlsMsg" class="muted"></div>
   <div class="da-sec">Gõ nhanh Phần I (từ câu 1)</div><div class="row"><input type="text" id="daFast" placeholder="vd ABCDDCBA..." style="text-transform:uppercase"><button type="button" id="daFastGo" style="flex:none">Điền</button></div>
   <div id="daForm"></div>
   <div id="daWBox"><div class="da-sec">Điểm</div>
@@ -454,24 +455,30 @@ function globalAlign(cv){
  // ngưỡng tối: theo nền sáng của ảnh
  const hist=new Array(256).fill(0);for(let i=0;i<N;i++)hist[gr[i]]++;let acc=0,p85=255;for(let v=0;v<256;v++){acc+=hist[v];if(acc>=N*.85){p85=v;break;}}
  const thr=Math.min(140,p85*.62);
- const seen=new Uint8Array(N),cand=[];
- for(let i=0;i<N;i++){if(seen[i]||gr[i]>thr)continue;const st=[i];seen[i]=1;let n=0,sx=0,sy=0,x0=1e9,x1=-1,y0=1e9,y1=-1;
-  while(st.length){const q=st.pop(),x=q%sw,y=(q/sw)|0;n++;sx+=x;sy+=y;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
-   if(x>0){const j=q-1;if(!seen[j]&&gr[j]<=thr){seen[j]=1;st.push(j);}}if(x<sw-1){const j=q+1;if(!seen[j]&&gr[j]<=thr){seen[j]=1;st.push(j);}}
-   if(y>0){const j=q-sw;if(!seen[j]&&gr[j]<=thr){seen[j]=1;st.push(j);}}if(y<sh-1){const j=q+sw;if(!seen[j]&&gr[j]<=thr){seen[j]=1;st.push(j);}}}
-  const bw=x1-x0+1,bh=y1-y0+1,fill=n/(bw*bh),side=Math.sqrt(n);
-  if(side<3||side>sw*Math.max(.05,mw*1.6))continue;if(bw/bh<.6||bw/bh>1.65||fill<.6)continue;
-  cand.push({x:sx/n,y:sy/n,n,fill});}
- if(cand.length<4)return{ok:false,error:'Chỉ thấy '+cand.length+' ô vuông đen.',cand,thr};
- // thử các tổ hợp: lấy 4 điểm cực trị, kiểm tra tỉ lệ khung
+ // mặt nạ 1: ngưỡng chung · mặt nạ 2: ngưỡng thích nghi theo độ sáng xung quanh (phiếu bị bóng tay / đèn lệch)
+ const mGlobal=new Uint8Array(N);for(let i=0;i<N;i++)mGlobal[i]=gr[i]<=thr?1:0;
+ const mAdapt=()=>{const I=new Float64Array((sw+1)*(sh+1));for(let y=0;y<sh;y++){let r=0;for(let x=0;x<sw;x++){r+=gr[y*sw+x];I[(y+1)*(sw+1)+x+1]=I[y*(sw+1)+x+1]+r;}}
+  const R=Math.max(8,Math.round(sw*Math.max(.03,mw*1.5))),m=new Uint8Array(N);
+  for(let y=0;y<sh;y++){const y0=Math.max(0,y-R),y1=Math.min(sh,y+R+1);for(let x=0;x<sw;x++){const x0=Math.max(0,x-R),x1=Math.min(sw,x+R+1);
+   const mean=(I[y1*(sw+1)+x1]-I[y0*(sw+1)+x1]-I[y1*(sw+1)+x0]+I[y0*(sw+1)+x0])/((x1-x0)*(y1-y0));const v=gr[y*sw+x];m[y*sw+x]=(v<mean*.62&&v<170)?1:0;}}return m;};
+ const blobs=mask=>{const seen=new Uint8Array(N),out=[];
+  for(let i=0;i<N;i++){if(seen[i]||!mask[i])continue;const st=[i];seen[i]=1;let n=0,sx=0,sy=0,x0=1e9,x1=-1,y0=1e9,y1=-1;
+   while(st.length){const q=st.pop(),x=q%sw,y=(q/sw)|0;n++;sx+=x;sy+=y;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;
+    if(x>0){const j=q-1;if(!seen[j]&&mask[j]){seen[j]=1;st.push(j);}}if(x<sw-1){const j=q+1;if(!seen[j]&&mask[j]){seen[j]=1;st.push(j);}}
+    if(y>0){const j=q-sw;if(!seen[j]&&mask[j]){seen[j]=1;st.push(j);}}if(y<sh-1){const j=q+sw;if(!seen[j]&&mask[j]){seen[j]=1;st.push(j);}}}
+   const bw=x1-x0+1,bh=y1-y0+1,fill=n/(bw*bh),side=Math.sqrt(n);
+   if(side<3||side>sw*Math.max(.05,mw*1.6))continue;if(bw/bh<.5||bw/bh>2||fill<.5)continue;
+   out.push({x:sx/n,y:sy/n,n,fill});}return out;};
+ let best=null,cand=[];
  const exp=Math.hypot(D[2].x-D[0].x,D[2].y-D[0].y)/Math.hypot(D[1].x-D[0].x,D[1].y-D[0].y);
- let best=null;
+ const tim=cand=>{let best=null;
+  if(cand.length<4)return null;
  // Ứng viên cho từng góc: 7 điểm "ngoài cùng" theo mỗi hướng (ô vuông chuẩn luôn nằm ở 4 góc ngoài cùng của phiếu)
  const top=(f)=>cand.slice().sort((u,v)=>f(u)-f(v)).slice(0,7);
  const CTL=top(u=>u.x+u.y),CTR=top(u=>-(u.x-u.y)),CBL=top(u=>u.x-u.y),CBR=top(u=>-(u.x+u.y));
  for(const t1 of CTL)for(const t2 of CTR)for(const t3 of CBL)for(const t4 of CBR){
   const g4=[t1,t2,t3,t4];if(new Set(g4).size<4)continue;
-  const ns=g4.map(x=>x.n),sz=Math.max(...ns)/Math.min(...ns);if(sz>1.8)continue;
+  const ns=g4.map(x=>x.n),sz=Math.max(...ns)/Math.min(...ns);if(sz>2.6)continue;
   const q=g4;if(!(t1.x<t2.x&&t3.x<t4.x&&t1.y<t3.y&&t2.y<t4.y))continue;
   const [A1,B1,C1,E1]=q,w1=Math.hypot(B1.x-A1.x,B1.y-A1.y),w2=Math.hypot(E1.x-C1.x,E1.y-C1.y),h1=Math.hypot(C1.x-A1.x,C1.y-A1.y),h2=Math.hypot(E1.x-B1.x,E1.y-B1.y);
   if(Math.min(w1,w2,h1,h2)<sw*.15)continue;
@@ -479,7 +486,7 @@ function globalAlign(cv){
   const side=Math.sqrt(ns.reduce((x,y)=>x+y,0)/4),pw=(w1+w2)/2/(Math.hypot(D[1].x-D[0].x,D[1].y-D[0].y)/pageW),ratioSide=side/(pw*mw);
   if(ratioSide<.12||ratioSide>2.2)continue;
   const r=((h1+h2)/2)/((w1+w2)/2),err=Math.abs(r/exp-1)+Math.abs(w1/w2-1)+Math.abs(h1/h2-1)+(sz-1)*.15;
-  if(err>.6)continue;
+  if(err>.75)continue;
   // Kiểm tra bằng TẤT CẢ ô vuông chuẩn của mẫu phiếu (cả ô giữa 2 mép), thử cả chiều xuôi và lộn ngược 180°
   const tol=Math.max(4,side*1.6);
   for(const [ori,qq] of [[0,q],[180,[q[3],q[2],q[1],q[0]]]]){
@@ -487,11 +494,13 @@ function globalAlign(cv){
    let hit=0;D0.forEach(m=>{const pp=applyH(Hq,m.x,m.y);if(cand.some(c=>Math.hypot(c.x-pp.x,c.y-pp.y)<=tol))hit++;});
    const score=hit*1.0-err;
    if(D0.length>4&&hit<Math.max(4,Math.ceil(D0.length*.6)))continue;
-   if(D0.length<=4&&err>.35)continue;
+   if(D0.length<=4&&err>.45)continue;
    if(!best||score>best.score)best={q:qq,err,score,hit,ori};
   }
  }
- if(!best)return{ok:false,error:'4 ô vuông tìm được không tạo thành khung phiếu.',cand:cand.slice(0,20),thr,exp};
+ return best;};
+ for(const mk2 of [()=>mGlobal,mAdapt]){cand=blobs(mk2());best=tim(cand);if(best)break;}
+ if(!best)return{ok:false,error:cand.length<4?'Chỉ thấy '+cand.length+' ô vuông đen.':'4 ô vuông tìm được không tạo thành khung phiếu.',cand:cand.slice(0,20),thr,exp};
  const src=best.q.map(p=>({x:p.x/k,y:p.y/k}));
  // tinh chỉnh từng góc trên ảnh độ phân giải đầy đủ
  const W=cv.width,H=cv.height,im=cv.getContext('2d',{willReadFrequently:true}).getImageData(0,0,W,H),rad=W*mw*1.2;
@@ -614,6 +623,7 @@ async function baiForm(b){const isNew=!b;b=b||{id:'B'+Date.now().toString(36),te
   '<label style="margin-top:6px">1. Tên bài</label><input type="text" id="bTen" value="'+esc(b.ten)+'" placeholder="vd Kiểm tra TX1 Toán 10A1">'+
   '<div class="row" style="margin-top:6px"><div><label>Loại kỳ</label><select id="bKy">'+KY.map(k=>'<option'+(k===b.ky?' selected':'')+'>'+k+'</option>').join('')+'</select></div><div><label>Lớp (tuỳ chọn)</label><input type="text" id="bLop" value="'+esc(b.lop)+'" placeholder="10A1"></div></div>'+
   '<label style="margin-top:8px">2. Mẫu phiếu</label><select id="bMau"><option value="">Đang tải mẫu phiếu…</option></select>'+
+  '<div class="row" style="margin-top:4px"><button type="button" id="bPhieu">🖨 Tải phiếu trống của mẫu này (in / photo)</button></div><div id="bPhieuMsg" class="muted"></div>'+
   '<label style="font-weight:normal;display:flex;gap:8px;align-items:center;margin-top:8px"><input type="checkbox" id="bSbd"'+(b.sbd?' checked':'')+'> 3. Quét số báo danh</label>'+
   '<label style="margin-top:8px">4. Cấu trúc đề</label>'+
   '<div class="row w4"><div><label>Phần I · số câu</label><input type="text" inputmode="numeric" id="bnI" value="'+c.nI+'"></div><div><label>Điểm 1 câu</label><input type="text" inputmode="decimal" id="bdI" value="'+c.dI+'"></div></div>'+
@@ -626,6 +636,7 @@ async function baiForm(b){const isNew=!b;b=b||{id:'B'+Date.now().toString(36),te
  const mx=()=>{const t=Object.assign({},b,{cau:rd()});$('bMax').innerHTML='Tổng tối đa: <b>'+baiMax(t)+'</b> điểm';};mx();
  ['bnI','bdI','bnII','bii0','bii1','bii2','bii3','bnIII','bdIII'].forEach(id=>$(id).oninput=mx);
  $('bHuy').onclick=()=>isNew?baiListView():baiOpen(b.id);
+ $('bPhieu').onclick=()=>{const v=$('bMau').value;if(!v){$('bPhieuMsg').innerHTML='<span class="bad">Chọn mẫu phiếu trước.</span>';return;}taiPhieuIn(v,$('bMau').selectedOptions[0].textContent.split(' · ')[0],$('bPhieuMsg'));};
  try{const ms=await mauList();$('bMau').innerHTML='<option value="">— Chọn mẫu phiếu —</option>'+ms.map(m=>'<option value="'+esc(m.id)+'"'+(m.id===b.mauId?' selected':'')+'>'+esc(m.name)+(m.soCau?' · '+[m.soCau.I?'P.I':'',m.soCau.II?'P.II':'',m.soCau.III?'P.III':''].filter(Boolean).join('/'):'')+'</option>').join('');}
  catch(e){$('bMau').innerHTML=b.mauId?'<option value="'+esc(b.mauId)+'">'+esc(b.mauTen)+'</option>':'<option value="">Không tải được mẫu phiếu</option>';$('bMsg').innerHTML='<span class="bad">'+esc(e.message)+'</span>';}
  $('bLuu').onclick=()=>{const ten=$('bTen').value.trim();if(!ten){$('bMsg').innerHTML='<span class="bad">Nhập tên bài.</span>';return;}if(!$('bMau').value){$('bMsg').innerHTML='<span class="bad">Chọn mẫu phiếu.</span>';return;}
@@ -645,11 +656,11 @@ function baiRoster(){S.roster={};(S.bai&&S.bai.ds||[]).forEach(r=>S.roster[r.sbd
 function baiMenu(){const b=S.bai,c=b.cau,nCode=Object.keys(b.codes||{}).length;
  $('baiBox').innerHTML='<div class="row" style="align-items:center"><button type="button" id="bBack" style="flex:none">←</button><label style="margin:0;flex:1">'+esc(b.ten)+'</label></div>'+
   '<div class="chips">'+(nCode?'✅':'❌')+' Đáp án: '+(nCode?nCode+' mã đề ('+Object.keys(b.codes).join(', ')+')':'chưa nhập')+'<br>✅ '+c.nI+'; '+c.nII+'; '+c.nIII+' câu · tối đa '+baiMax(b)+' điểm<br>'+((b.ds||[]).length?'✅ Danh sách lớp: '+b.ds.length+' HS':'➖ Chưa có danh sách lớp (không bắt buộc)')+'<br>✅ Phiếu: '+esc(b.mauTen)+'<br>'+(b.sbd?'✅':'❌')+' Quét số báo danh · '+esc(b.ky)+(b.lop?' · Lớp '+esc(b.lop):'')+'</div>'+
-  '<div class="menu"><button type="button" id="mDA">🔑 Đáp án</button><button type="button" id="mCham" class="main" style="text-align:left">▶ Chấm bài</button><button type="button" id="mDs">👥 Danh sách lớp ('+((b.ds||[]).length?(b.ds.length+' HS'):'chưa có')+')</button><button type="button" id="mKq">🖼 Bài đã chấm ('+(b.kq||[]).length+')</button><button type="button" id="mBd">📋 Bảng điểm lớp (TN + TL)</button><button type="button" id="mXuat">⬇ Xuất kết quả (Excel/CSV)</button><button type="button" id="mTk">📊 Thống kê</button><button type="button" id="mSua">✏️ Sửa bài chấm</button><button type="button" id="mXoa" class="red" style="text-align:left">🗑 Xoá bài chấm</button></div><div id="baiView"></div>';
+  '<div class="menu"><button type="button" id="mDA">🔑 Đáp án</button><button type="button" id="mCham" class="main" style="text-align:left">▶ Chấm bài</button><button type="button" id="mPhieu">🖨 Tải phiếu trống (in / photo)</button><button type="button" id="mDs">👥 Danh sách lớp ('+((b.ds||[]).length?(b.ds.length+' HS'):'chưa có')+')</button><button type="button" id="mKq">🖼 Bài đã chấm ('+(b.kq||[]).length+')</button><button type="button" id="mBd">📋 Bảng điểm lớp (TN + TL)</button><button type="button" id="mXuat">⬇ Xuất kết quả (Excel/CSV)</button><button type="button" id="mTk">📊 Thống kê</button><button type="button" id="mSua">✏️ Sửa bài chấm</button><button type="button" id="mXoa" class="red" style="text-align:left">🗑 Xoá bài chấm</button></div><div id="baiView"></div>';
  $('bBack').onclick=baiListView;
  $('mDA').onclick=()=>{show('stepDA',true);$('daEd').classList.add('hide');daOpen();$('stepDA').scrollIntoView({behavior:'smooth'});};
  $('mCham').onclick=()=>{if(!nCode){alert('Nhập đáp án trước.');$('mDA').click();return;}show('stepCam',true);$('stepCam').scrollIntoView({behavior:'smooth'});};
- $('mKq').onclick=baiKq;$('mDs').onclick=baiDs;$('mBd').onclick=baiBd;$('mXuat').onclick=baiCsv;$('mTk').onclick=baiTk;$('mSua').onclick=()=>baiForm(JSON.parse(JSON.stringify(b)));
+ $('mPhieu').onclick=()=>taiPhieuIn(b.mauId,b.mauTen,null);$('mKq').onclick=baiKq;$('mDs').onclick=baiDs;$('mBd').onclick=baiBd;$('mXuat').onclick=baiCsv;$('mTk').onclick=baiTk;$('mSua').onclick=()=>baiForm(JSON.parse(JSON.stringify(b)));
  $('mXoa').onclick=()=>{if(!confirm('Xoá bài chấm "'+b.ten+'" cùng '+(b.kq||[]).length+' kết quả trên máy này?\nNên Xuất kết quả trước khi xoá.'))return;if(prompt('Gõ XOA để xác nhận')!=='XOA')return;anhXoaBai(b.id);baiPutAll(baiAll().filter(x=>x.id!==b.id));baiListView();};
  show('stepDA',false);show('stepCam',!!nCode);renderHist();}
 function baiKq(){const b=S.bai,a=b.kq||[];$('baiView').innerHTML='<h3 style="margin:10px 0 4px">Bài đã chấm ('+a.length+')</h3>'+(a.length?'<table class="kq"><tr><th>#</th><th>'+(b.sbd?'SBD':'')+'</th><th>Mã đề</th><th>TN</th><th>TL</th><th>Tổng</th><th></th></tr>'+
@@ -736,37 +747,89 @@ async function xemAnh(r){const b=S.bai;let blob=null;try{blob=r.k?await anhGet(b
  ov.innerHTML='<div style="color:#fff;margin:4px 0 8px"><b>'+esc(st.ten||'')+'</b> · SBD '+esc(r.sbd||'—')+' · Mã đề '+esc(r.maDe)+' · <b>'+esc(r.diem)+'</b> điểm</div><img src="'+url+'" style="max-width:100%;background:#fff"><div class="row" style="margin:10px auto;max-width:480px"><a class="btn" download="'+esc(ten.replace(/[^\wÀ-ỹ]+/g,'_'))+'.jpg" href="'+url+'" style="flex:1;background:#176b43;color:#fff;border-radius:12px;padding:14px;text-decoration:none;font-weight:bold">⬇ Lưu ảnh về máy</a><button type="button" id="ovClose">Đóng</button></div>';
  document.body.appendChild(ov);$('ovClose').onclick=()=>{ov.remove();URL.revokeObjectURL(url);};}
 
+/* ---------- Tải phiếu trống để in / photo ---------- */
+async function taiPhieuIn(id,ten,el){const say=h=>{if(el)el.innerHTML=h;else if(h.indexOf('bad')>0)alert(h.replace(/<[^>]+>/g,''));};
+ if(!id){say('<span class="bad">Chưa có mẫu phiếu.</span>');return;}say('Đang tải phiếu…');
+ try{const r=await gas('omrDtPhieuIn',id);const bin=atob(r.b64),u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);
+  const url=URL.createObjectURL(new Blob([u],{type:r.mime})),a=document.createElement('a');a.href=url;a.download=r.ten||('PHIEU_'+(ten||id)+'.pdf');document.body.appendChild(a);a.click();a.remove();
+  say('<span class="ok">✔ Đã tải '+esc(r.ten)+' ('+r.kb+' KB). Nếu máy không tự lưu: <a href="'+url+'" target="_blank" download="'+esc(r.ten)+'">bấm vào đây để mở</a>, rồi Chia sẻ → In / Lưu.</span>');}
+ catch(e){say('<span class="bad">'+esc(e.message)+'</span>');}}
+$('dotPhieu').onclick=()=>{const p=S.prep&&S.prep.profile&&S.prep.profile.profile;taiPhieuIn(p&&p.id,p&&p.name,$('dotPhieuMsg'));};
+
 /* ---------- Nhập đáp án từ file Excel ---------- */
-function dapAnMau(){const T=structure(),qs=o=>Object.keys(o).sort((a,b)=>(+a)-(+b));const h=['Mã đề'].concat(qs(T.I).map(q=>'I.'+q),qs(T.II).map(q=>'II.'+q),qs(T.III).map(q=>'III.'+q));
- const vd=['101'].concat(qs(T.I).map((q,i)=>'ABCD'[i%4]),qs(T.II).map(()=>'ĐSĐS'),qs(T.III).map(()=>'2,5'));
- const csv='\ufeff'+[h,vd].map(r=>r.map(v=>'"'+v+'"').join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='MAU_DAP_AN.csv';document.body.appendChild(a);a.click();a.remove();}
-function vnHoa(v){return String(v==null?'':v).normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toUpperCase().trim();}
+/* File mẫu Excel: 3 trang — DAP_AN_THEO_COT (dọc), DAP_AN_THEO_HANG (ngang), HUONG_DAN. Phần II ghi D/S. */
+async function dapAnMau(){const T=structure(),qs=o=>Object.keys(o).sort((a,b)=>(+a)-(+b));const QI=qs(T.I),QII=qs(T.II),QIII=qs(T.III);
+ const ms=Object.keys(DA.codes||{}).sort();const M=ms.length?ms:['101','102','103','104'];const g=(m,P,q,k)=>{const c=(DA.codes||{})[m];if(!c)return'';
+  if(P==='I')return c.I[q]||'';if(P==='III')return c.III[q]||'';const a=(c.II[q]||[]).map(v=>{v=String(v||'').toUpperCase();return v==='Đ'?'D':v;});if(!a.some(v=>v))return'';return k==null?[0,1,2,3].map(i=>a[i]||'S').join(''):(a[k]||'S');};
+ const cot=[['CÂU/PHẦN'].concat(M)];
+ if(QI.length){cot.push(['PHẦN I']);QI.forEach(q=>cot.push(['Câu '+q].concat(M.map(m=>g(m,'I',q)))));}
+ if(QII.length){cot.push(['PHẦN II']);QII.forEach(q=>cot.push(['Câu '+q].concat(M.map(m=>g(m,'II',q)))));}
+ if(QIII.length){cot.push(['PHẦN III']);QIII.forEach(q=>cot.push(['Câu '+q].concat(M.map(m=>g(m,'III',q)))));}
+ const hh=['Đề\\câu'].concat(QI,[].concat(...QII.map(q=>['a','b','c','d'].map(y=>q+y))),QIII.map(q=>'TLN'+q));
+ const hang=[hh].concat(M.map(m=>[m].concat(QI.map(q=>g(m,'I',q)),[].concat(...QII.map(q=>[0,1,2,3].map(k=>g(m,'II',q,k)))),QIII.map(q=>g(m,'III',q)))));
+ const hd=[['HƯỚNG DẪN — MẪU ĐÁP ÁN (điện thoại)'],['1','Chỉ cần điền 1 trong 2 trang: DAP_AN_THEO_COT (dọc) hoặc DAP_AN_THEO_HANG (ngang). Điền cả 2 thì trang sau ghi đè trang trước.'],
+  ['2','Thay 101, 102… bằng mã đề thực tế (giữ số 0 ở đầu nếu có). Thêm/xoá cột hoặc dòng mã đề tuỳ ý.'],
+  ['3','Phần I: ghi A, B, C hoặc D.'],['4','Phần II: ghi D (đúng) hoặc S (sai). Trang dọc: mỗi câu 1 ô 4 ký tự, vd DSDS. Trang ngang: mỗi ý 1 cột 1a, 1b, 1c, 1d. Gõ Đ cũng được.'],
+  ['5','Phần III (trả lời ngắn): ghi số, vd 2,5 hoặc -12. Trang ngang dùng cột TLN1, TLN2…'],
+  ['6','Ô trống được bỏ qua. Không có phần nào thì xoá dòng/cột phần đó.'],['7','Trên điện thoại: 🔑 Đáp án → 📥 Nhập đáp án từ file Excel → kiểm tra → 💾 Lưu đáp án.']];
+ try{await loadXlsx();const wb=XLSX.utils.book_new();
+  const w1=XLSX.utils.aoa_to_sheet(cot);w1['!cols']=[{wch:12}].concat(M.map(()=>({wch:9})));XLSX.utils.book_append_sheet(wb,w1,'DAP_AN_THEO_COT');
+  const w2=XLSX.utils.aoa_to_sheet(hang);w2['!cols']=hh.map((_,i)=>({wch:i?5:9}));XLSX.utils.book_append_sheet(wb,w2,'DAP_AN_THEO_HANG');
+  const w3=XLSX.utils.aoa_to_sheet(hd);w3['!cols']=[{wch:6},{wch:110}];XLSX.utils.book_append_sheet(wb,w3,'HUONG_DAN');
+  XLSX.writeFile(wb,'MAU_DAP_AN.xlsx');}
+ catch(e){const csv='﻿'+hang.map(r=>r.map(v=>'"'+v+'"').join(',')).join('\r\n');const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'}));a.download='MAU_DAP_AN_NGANG.csv';document.body.appendChild(a);a.click();a.remove();}}
+function vnHoa(v){return String(v==null?'':v).normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/đ/g,'d').replace(/Đ/g,'D').toUpperCase().trim();}
 function dsTF(v){return vnHoa(v).replace(/[^A-Z01]/g,'').split('').map(c=>/[DT1]/.test(c)?'D':/[SF0]/.test(c)?'S':'').filter(Boolean);}
+function normMa(v){const s=cellT(v);if(!s)return'';const t=vnHoa(s).replace(/^(MA ?DE|DE|MD)\s*[_\-:.#]*\s*/,'');return /^\d+$/.test(t)?t:s;}
+/* Nhận dạng tên câu: "1"→I.1 · "1a"→II.1 ý a · "TLN1"→III.1 · "I.1","II.2","III.3","P1-5"… ; P mặc định theo phần đang đọc */
+function cauKey(x,Pdef){x=vnHoa(x).replace(/\s+/g,' ');if(!x)return null;let m;
+ if((m=x.match(/^(?:PHAN ?)?(III|II|I|P[123])\s*[.\-_\/ ]\s*(?:CAU ?)?(\d+)\s*([A-D])?$/))){const p=m[1].replace('P','');const P=p==='1'||p==='I'?'I':p==='2'||p==='II'?'II':'III';return{P,q:String(+m[2]),k:m[3]&&P==='II'?'ABCD'.indexOf(m[3]):null};}
+ if((m=x.match(/^(?:TLN|TL|TRA LOI NGAN|TLNGAN)\s*[.\-_ ]?\s*(?:CAU ?)?(\d+)$/)))return{P:'III',q:String(+m[1]),k:null};
+ if((m=x.match(/^(?:CAU ?)?(\d+)\s*[.\-_)]?\s*([A-D])$/)))return{P:'II',q:String(+m[1]),k:'ABCD'.indexOf(m[2])};
+ if((m=x.match(/^(?:CAU ?)?(\d+)$/)))return{P:Pdef||'I',q:String(+m[1]),k:null};return null;}
+function datDA(codes,m,o,v){if(v===''||v==null||!m)return;const s=typeof v==='number'?String(v):cellT(v);if(!s)return;const c=codes[m]=codes[m]||{I:{},II:{},III:{}};
+ if(o.P==='I'){const L=vnHoa(s).slice(0,1);if(/[ABCD]/.test(L))c.I[o.q]=L;}
+ else if(o.P==='II'){const a=dsTF(s);if(!a.length)return;c.II[o.q]=c.II[o.q]||['','','',''];if(o.k!=null)c.II[o.q][o.k]=a[0];else [0,1,2,3].forEach(i=>c.II[o.q][i]=a[i]||'S');}
+ else c.III[o.q]=s.replace('.',',');}
 function docDapAn(data){
- for(let r=0;r<Math.min(20,data.length);r++){const row=(data[r]||[]).map(v=>vnHoa(v));const iMa=row.findIndex(x=>/^MA ?DE( THI)?$/.test(x)||x==='MADE');if(iMa<0)continue;
-  const codes={},add=m=>codes[m]=codes[m]||{I:{},II:{},III:{}};
+ for(let r=0;r<Math.min(20,data.length);r++){const raw=data[r]||[],row=raw.map(v=>vnHoa(v));
+  const iL=row.findIndex(x=>x!=='');if(iL<0)continue;
+  const codes={};
+  // 1) dạng danh sách: Mã đề | Phần | Câu | (Ý) | Đáp án
+  const iMa=row.findIndex(x=>/^MA ?DE( THI)?$/.test(x)||x==='MADE');
   const iP=row.findIndex(x=>/^PHAN$/.test(x)),iC=row.findIndex(x=>/^CAU( SO)?$/.test(x)),iY=row.findIndex(x=>/^(Y|STT Y|Y SO)$/.test(x)),iD=row.findIndex(x=>/^DAP AN$/.test(x));
-  if(iP>=0&&iC>=0&&iD>=0){ // dạng dọc: Mã đề | Phần | Câu | (Ý) | Đáp án
-   data.slice(r+1).forEach(x=>{if(!x)return;const m=cellT(x[iMa]);if(!m)return;const p=vnHoa(x[iP]).replace(/^PHAN ?/,''),q=String(parseInt(cellT(x[iC]))||''),d=cellT(x[iD]);if(!q||d==='')return;const c=add(m);
-    const P=/^(I|1)$/.test(p)?'I':/^(II|2)$/.test(p)?'II':/^(III|3)$/.test(p)?'III':'';
-    if(P==='I')c.I[q]=vnHoa(d).slice(0,1);else if(P==='III')c.III[q]=String(d).replace('.',',');
-    else if(P==='II'){const y=iY>=0?cellT(x[iY]):'';const k=/^[a-dA-D]$/.test(y)?'abcd'.indexOf(y.toLowerCase()):(parseInt(y)||0)-1;c.II[q]=c.II[q]||['','','',''];if(k>=0&&k<4)c.II[q][k]=dsTF(d)[0]||'';else dsTF(d).slice(0,4).forEach((v,i)=>c.II[q][i]=v);}});
-   return codes;}
-  const cols=row.map((x,i)=>{let mm=x.match(/^(?:PHAN ?)?(III|II|I|P[123]|[123])\s*[.\-_/ ]\s*(?:CAU ?)?(\d+)$/);if(mm){const p=mm[1].replace('P','');return{i,P:p==='1'||p==='I'?'I':p==='2'||p==='II'?'II':'III',q:String(+mm[2])};}
-   mm=x.match(/^(?:CAU ?)?(\d+)$/);return mm&&i!==iMa?{i,P:'I',q:String(+mm[1])}:null;}).filter(Boolean);
+  if(iMa>=0&&iP>=0&&iC>=0&&iD>=0){
+   data.slice(r+1).forEach(x=>{if(!x)return;const m=normMa(x[iMa]);if(!m)return;const p=vnHoa(x[iP]).replace(/^PHAN ?/,''),q=String(parseInt(cellT(x[iC]))||'');if(!q)return;
+    const P=/^(I|1)$/.test(p)?'I':/^(II|2)$/.test(p)?'II':/^(III|3)$/.test(p)?'III':'';if(!P)return;
+    let k=null;if(P==='II'&&iY>=0){const y=cellT(x[iY]);k=/^[a-dA-D]$/.test(y)?'abcd'.indexOf(y.toLowerCase()):(parseInt(y)||0)-1;if(k<0||k>3)k=null;}
+    datDA(codes,m,{P,q,k},x[iD]);});
+   return {codes,kieu:'danh sách'};}
+  const lab=row[iL];if(!/MA ?DE|^DE\b|^DE[\\\/_ ]|CAU|PHAN/.test(lab))continue;
+  // 2) dạng DỌC (mã đề theo cột): cột đầu là PHẦN I / Câu 1 / 1a / TLN1…, các cột sau là mã đề
+  const duoi=data.slice(r+1,r+80).map(x=>vnHoa((x||[])[iL]));
+  const nhan=duoi.filter(x=>/^PHAN ?(III|II|I|[123])\b/.test(x)||/^CAU ?\d/.test(x)||/^TLN?\s*\d/.test(x)||/^\d+\s*[A-D]$/.test(x)).length;
+  if(nhan>=2){const cols=[];raw.forEach((v,j)=>{if(j!==iL&&cellT(v))cols.push({j,m:normMa(v)});});if(!cols.length)continue;
+   let P='I';data.slice(r+1).forEach(x=>{if(!x)return;const l=vnHoa(x[iL]);if(!l)return;const ph=l.match(/^PHAN ?(III|II|I|[123])\b/);
+    if(ph){P=ph[1]==='1'||ph[1]==='I'?'I':ph[1]==='2'||ph[1]==='II'?'II':'III';return;}
+    const o=cauKey(l,P);if(!o)return;if(o.P==='II'&&P!=='II'&&o.k==null)o.P=P;cols.forEach(c=>datDA(codes,c.m,o,x[c.j]));});
+   return {codes,kieu:'dọc (mã đề theo cột)'};}
+  // 3) dạng NGANG (mã đề theo hàng): Mã đề / Đề\câu | 1 | 2 … | 1a 1b … | TLN1 …  (hoặc I.1, II.1, III.1)
+  const cols=[];row.forEach((x,j)=>{if(j===iL)return;const o=cauKey(x,'I');if(o)cols.push(Object.assign({j},o));});
   if(!cols.length)continue;
-  data.slice(r+1).forEach(x=>{if(!x)return;const m=cellT(x[iMa]);if(!m)return;const c=add(m);cols.forEach(o=>{const v=x[o.i];if(v===''||v==null)return;
-   if(o.P==='I'){const L=vnHoa(v).slice(0,1);if(/[ABCD]/.test(L))c.I[o.q]=L;}else if(o.P==='II'){const a=dsTF(v);if(a.length)c.II[o.q]=[0,1,2,3].map(i=>a[i]||'S');}else c.III[o.q]=(typeof v==='number'?String(v):cellT(v)).replace('.',',');});});
-  return codes;}
- throw new Error('Không thấy dòng tiêu đề có cột "Mã đề". Bấm ⬇ File mẫu để xem cách ghi.');}
+  data.slice(r+1).forEach(x=>{if(!x)return;const m=normMa(x[iL]);if(!m)return;cols.forEach(o=>datDA(codes,m,o,x[o.j]));});
+  return {codes,kieu:'ngang (mã đề theo hàng)'};}
+ throw new Error('Không nhận ra cách ghi đáp án trong file. Bấm ⬇ File mẫu để xem cách ghi (dọc hoặc ngang).');}
 async function nhapDapAnFile(f){$('daXlsMsg').textContent='Đang đọc file…';
- try{let data;if(/\.csv$/i.test(f.name)){const t=(await f.text()).replace(/^\ufeff/,''),first=t.split(/\r?\n/)[0]||'',sep=first.split(';').length>first.split(',').length?';':',';data=t.split(/\r?\n/).filter(x=>x.trim()).map(l=>{const o=[];let v='',q=false;for(let i=0;i<l.length;i++){const c=l[i];if(c==='"'&&q&&l[i+1]==='"'){v+='"';i++;}else if(c==='"')q=!q;else if(c===sep&&!q){o.push(v);v='';}else v+=c;}o.push(v);return o;});}
-  else{await loadXlsx();const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});data=null;for(const n of wb.SheetNames){const d=XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:'',raw:true});try{docDapAn(d);data=d;break;}catch(_){}}if(!data)data=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:'',raw:true});}
-  const codes=docDapAn(data),ms=Object.keys(codes);if(!ms.length)throw new Error('File không có mã đề nào.');
+ try{const sheets=[];if(/\.csv$/i.test(f.name)){const t=(await f.text()).replace(/^﻿/,''),first=t.split(/\r?\n/)[0]||'',sep=first.split(';').length>first.split(',').length?';':',';sheets.push(['CSV',t.split(/\r?\n/).filter(x=>x.trim()).map(l=>{const o=[];let v='',q=false;for(let i=0;i<l.length;i++){const c=l[i];if(c==='"'&&q&&l[i+1]==='"'){v+='"';i++;}else if(c==='"')q=!q;else if(c===sep&&!q){o.push(v);v='';}else v+=c;}o.push(v);return o;})]);}
+  else{await loadXlsx();const wb=XLSX.read(await f.arrayBuffer(),{type:'array'});wb.SheetNames.forEach(n=>sheets.push([n,XLSX.utils.sheet_to_json(wb.Sheets[n],{header:1,defval:'',raw:true})]));}
+  const codes={},dung=[];let loi='';
+  sheets.forEach(([n,d])=>{try{const r=docDapAn(d),ks=Object.keys(r.codes).filter(m=>{const c=r.codes[m];return Object.keys(c.I).length+Object.keys(c.II).length+Object.keys(c.III).length;});
+   if(ks.length){dung.push((sheets.length>1?'Trang '+n+': ':'')+'kiểu '+r.kieu+', '+ks.length+' mã đề');ks.forEach(m=>{const c=r.codes[m],o=codes[m]=codes[m]||{I:{},II:{},III:{}};Object.assign(o.I,c.I);Object.assign(o.II,c.II);Object.assign(o.III,c.III);});}}catch(e){loi=loi||e.message;}});
+  const ms=Object.keys(codes).sort();if(!ms.length)throw new Error(loi&&!dung.length&&sheets.every(([n,d])=>{try{docDapAn(d);return false;}catch(_){return true;}})?loi:'File chưa có đáp án nào (các ô đáp án còn trống).');
   const dem=ms.map(m=>{const c=codes[m];return m+' ('+Object.keys(c.I).length+'/'+Object.keys(c.II).length+'/'+Object.keys(c.III).length+')';});
-  if(!confirm('Đọc được '+ms.length+' mã đề — số câu Phần I/II/III:\n'+dem.join('\n')+'\n\nĐưa vào bộ đáp án (mã đề trùng sẽ được thay)? Sau đó kiểm tra rồi bấm 💾 Lưu.'))return;
+  if(!confirm(dung.join('\n')+'\n\nSố câu Phần I/II/III từng mã đề:\n'+dem.join('\n')+'\n\nĐưa vào bộ đáp án (mã đề trùng sẽ được thay)? Sau đó kiểm tra rồi bấm 💾 Lưu.'))return;
   ms.forEach(m=>DA.codes[m]=codes[m]);DA.cur=ms[0];DA.dirty=true;daCodes();daSum();
-  $('daXlsMsg').innerHTML='<span class="ok">✔ Đã đưa '+ms.length+' mã đề vào. Kiểm tra từng mã đề rồi bấm <b>💾 Lưu đáp án</b>.</span>';}
+  $('daXlsMsg').innerHTML='<span class="ok">✔ Đã đưa '+ms.length+' mã đề vào ('+esc(dung.join('; '))+'). Kiểm tra từng mã đề rồi bấm <b>💾 Lưu đáp án</b>.</span>';}
  catch(e){$('daXlsMsg').innerHTML='<span class="bad">'+esc(e.message)+'</span>';}}
 $('daXlsBtn').onclick=()=>$('daXls').click();$('daXls').onchange=e=>{const f=e.target.files[0];e.target.value='';if(f)nhapDapAnFile(f);};$('daMau').onclick=dapAnMau;
 
@@ -776,7 +839,7 @@ function busy(msg){show('stepRes',true);$('resBusy').innerHTML=msg?'<span class=
 function mode(){const r=document.querySelector('input[name=mode]:checked');return r?r.value:'C1';}
 function isC2(){return mode()!=='C1';}   // C2 & C3: không cần danh sách, không lưu
 const C2_BO_QUA=/Danh sách thí sinh|Số chữ số SBD|Sheet kết quả/,C3_BO_QUA=/Danh sách thí sinh|Số chữ số SBD|Sheet kết quả|Đáp án|Trọng số|Tổng điểm/;
-function renderCheck(){const m0=mode();$('dotBox').classList.toggle('hide',m0==='C3');show('stepBai',m0==='C3');if(m0==='C3'){if(!S.bai)baiListView();else baiMenu();$('checkList').innerHTML='';document.querySelectorAll('.c1only').forEach(x=>x.classList.add('hide'));return;}
+function renderCheck(){const m0=mode();$('dotPhieuBox').classList.toggle('hide',m0==='C3'||!S.prep);$('dotBox').classList.toggle('hide',m0==='C3');show('stepBai',m0==='C3');if(m0==='C3'){if(!S.bai)baiListView();else baiMenu();$('checkList').innerHTML='';document.querySelectorAll('.c1only').forEach(x=>x.classList.add('hide'));return;}
  const p=S.prep;if(!p)return;const c2=isC2(),m=mode(),BQ=m==='C3'?C3_BO_QUA:C2_BO_QUA;
  S.codes={};if(m==='C3')Object.keys(daLocal().codes).forEach(c=>S.codes[c]=1);else p.codes.forEach(c=>S.codes[c]=1);
  const bad=p.checks.filter(c=>!c.ok&&!(c2&&BQ.test(c.item)));
@@ -966,9 +1029,9 @@ async function startLive(){
  try{const cap=L.track.getCapabilities&&L.track.getCapabilities();if(cap&&cap.torch)$('liveTorch').classList.remove('hide');}catch(e){}
  show('live',true);$('liveRes').classList.add('hide');L.paused=false;L.hold=0;L.last=null;
  liveMsg('Đưa phiếu vào khung, thấy rõ <b>4 ô vuông đen</b> ở 4 góc. Giữ yên tay…');
- L.timer=setInterval(liveTick,300);
+ L.miss=0;L.timer=1;(function loop(){if(!L.timer)return;liveTick().finally(()=>{if(L.timer)L.timer=setTimeout(loop,120);});})();
 }
-function stopLive(){clearInterval(L.timer);L.timer=null;if(L.stream)L.stream.getTracks().forEach(t=>t.stop());L.stream=null;show('live',false);}
+function stopLive(){clearTimeout(L.timer);L.timer=null;if(L.stream)L.stream.getTracks().forEach(t=>t.stop());L.stream=null;show('live',false);}
 function frameCanvas(maxDim){const v=$('vid'),w=v.videoWidth,h=v.videoHeight;if(!w||!h)return null;const sc=Math.min(1,maxDim/Math.max(w,h)),c=document.createElement('canvas');c.width=Math.round(w*sc);c.height=Math.round(h*sc);c.getContext('2d',{willReadFrequently:true}).drawImage(v,0,0,c.width,c.height);return c;}
 function drawGuide(pts){const v=$('vid'),o=$('vov'),r=o.getBoundingClientRect();o.width=r.width;o.height=r.height;const g=o.getContext('2d');g.clearRect(0,0,o.width,o.height);
  const vw=v.videoWidth,vh=v.videoHeight;if(!vw)return;const sc=Math.min(o.width/vw,o.height/vh),ox=(o.width-vw*sc)/2,oy=(o.height-vh*sc)/2;
@@ -987,17 +1050,18 @@ async function liveTick(){
  try{
   let f=frameCanvas(900);if(!f){L.busy=false;return;}
   const rot=f.width>f.height;const cv=rot?rotateCv(f,90):f;
-  let n=normalizeLight(cv),A=globalAlign(n);if(!A.ok)A=globalAlign(cv);  // chỉ nhận khi khớp đủ các ô vuông chuẩn của mẫu phiếu
-  if(!A.ok){L.hold=0;L.needClear=false;drawGuide(null);liveMsg('Chưa thấy <b>đủ 4 góc</b> — lùi máy ra để thấy <b>cả tờ phiếu</b> (cả mép trên và mép dưới), giữ máy song song mặt giấy, đủ sáng.');L.busy=false;return;}
+  let A=globalAlign(cv);if(!A.ok)A=globalAlign(normalizeLight(cv));  // ảnh gốc trước (nhanh), cân bằng sáng sau  // chỉ nhận khi khớp đủ các ô vuông chuẩn của mẫu phiếu
+  if(!A.ok){if(++L.miss<=2&&L.hold>0){L.busy=false;return;}  // trượt 1–2 khung do rung tay: giữ nguyên tiến độ
+   L.hold=0;L.needClear=false;drawGuide(null);liveMsg('Chưa thấy <b>đủ 4 góc</b> — lùi máy ra để thấy <b>cả tờ phiếu</b> (cả mép trên và mép dưới), giữ máy song song mặt giấy, đủ sáng.');L.busy=false;return;}
   // toạ độ góc trên khung video (khung nhỏ) -> đổi về toạ độ video gốc
-  const v=$('vid'),k=v.videoWidth/f.width;let pts=cornersOf(A,f.width,f.height,false);
+  L.miss=0;const v=$('vid'),k=v.videoWidth/f.width;let pts=cornersOf(A,f.width,f.height,false);
   if(rot)pts=pts.map(p=>({x:p.y,y:f.height-p.x}));
   pts=pts.map(p=>({x:p.x*k,y:p.y*k}));drawGuide(pts);
   const mv=L.last?Math.max(...pts.map((p,i)=>Math.hypot(p.x-L.last[i].x,p.y-L.last[i].y))):1e9;L.last=pts;
   if(L.needClear){if(L.donePts&&Math.max(...pts.map((p,i)=>Math.hypot(p.x-L.donePts[i].x,p.y-L.donePts[i].y)))>v.videoWidth*0.08)L.needClear=false;
    else{liveMsg('✔ Phiếu này đã xong — <b>đổi sang phiếu tiếp theo</b>…');L.busy=false;return;}}
-  if(mv<v.videoWidth*0.02)L.hold++;else L.hold=1;
-  if(L.hold<3){liveMsg('Đã thấy đủ 4 góc — <b>giữ yên tay</b>… ('+L.hold+'/3)');L.busy=false;return;}
+  if(mv<v.videoWidth*0.045)L.hold++;else L.hold=1;
+  if(L.hold<2){liveMsg('Đã thấy đủ 4 góc — <b>giữ yên tay</b>…');L.busy=false;return;}
   // chụp khung hình đầy đủ và chấm
   L.paused=true;liveMsg('Đang chấm…');if(navigator.vibrate)navigator.vibrate(40);
   L.donePts=pts;const full=frameCanvas(2400);
