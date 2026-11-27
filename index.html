@@ -48,6 +48,17 @@ img.prev{width:100%;border:1px solid #ccd8d0;border-radius:8px;margin-top:8px}
 #live .res img{max-width:100%;max-height:62vh;border-radius:8px}
 #live .res .d{font-size:54px;font-weight:bold;color:#ffd24d;line-height:1}
 #live .btm{display:flex;gap:8px;padding:10px;background:#111}
+#cdPanel{position:fixed;inset:0;z-index:9999;background:rgba(0,0,0,.55);display:flex;align-items:flex-end;justify-content:center}
+#cdPanel.hide{display:none}
+#cdPanel .cdBox{background:#f2f2f7;color:#111;width:100%;max-width:520px;border-radius:16px 16px 0 0;padding:18px 18px 24px;font-size:17px}
+#cdPanel h3{margin:0 0 14px;text-align:center;color:#3f51b5}
+#cdPanel .cdRow{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:14px 0}
+#cdPanel input[type=range]{width:100%;accent-color:#3f51b5}
+#cdPanel .sw{position:relative;width:56px;height:32px;flex:none}#cdPanel .sw input{opacity:0;width:0;height:0}
+#cdPanel .sw span{position:absolute;inset:0;background:#c7c7cc;border-radius:32px;transition:.2s}
+#cdPanel .sw span:before{content:"";position:absolute;width:26px;height:26px;left:3px;top:3px;background:#fff;border-radius:50%;transition:.2s}
+#cdPanel .sw input:checked+span{background:#4f63c6}#cdPanel .sw input:checked+span:before{transform:translateX(24px)}
+#cdPanel .cdNote{font-size:13px;color:#555;line-height:1.45}
 #live .btm button{flex:1}
 #man{position:fixed;inset:0;background:#111;z-index:70;display:flex;flex-direction:column;color:#fff}
 #man .mhead{padding:8px 12px;font-size:15px;line-height:1.35;background:#000}
@@ -108,6 +119,7 @@ img.prev{width:100%;border:1px solid #ccd8d0;border-radius:8px;margin-top:8px}
  <input type="file" id="camInput" accept="image/*" capture="environment" class="hide">
  <input type="file" id="galInput" accept="image/*" class="hide">
  <button class="big-cam" id="btnLive" type="button">🎥 QUÉT TRỰC TIẾP (tự chấm)</button>
+ <button type="button" id="btnCaiDat" style="margin-top:8px;width:100%;background:#eef0fb;color:#3f51b5;font-weight:bold">⚙ Cài đặt quét: <span id="cdTomTat"></span></button>
  <button class="big-cam" id="btnCam" type="button" style="margin-top:8px;background:#2f7d55;padding:16px;font-size:18px">📷 Chụp ảnh từng phiếu</button>
  <div class="row" style="margin-top:8px"><button type="button" id="btnGal">🖼 Chọn ảnh có sẵn</button></div>
  <label class="c1only" style="margin-top:10px;font-weight:normal;display:flex;gap:8px;align-items:center"><input type="checkbox" id="autoSave"> Tự lưu ngay khi phiếu đọc tốt (không lỗi, không cảnh báo)</label>
@@ -134,8 +146,19 @@ img.prev{width:100%;border:1px solid #ccd8d0;border-radius:8px;margin-top:8px}
  <div class="vwrap"><video id="vid" playsinline muted autoplay></video><canvas class="ov" id="vov"></canvas>
   <div class="top" id="liveMsg">Đưa phiếu vào khung, thấy rõ 4 ô vuông đen ở 4 góc…</div>
   <div class="res hide" id="liveRes"></div></div>
- <div class="btm"><button id="liveClose">✕ Đóng</button><button id="liveShot" class="main">📸 Chụp ngay</button><button id="liveTorch" class="hide">🔦 Đèn</button></div>
+ <div class="btm"><button id="liveClose">✕ Đóng</button><button id="liveShot" class="main">📸 Chụp ngay</button><button id="liveTorch" class="hide">🔦 Đèn</button><button id="liveCd" style="flex:none">⚙</button></div>
 </div>
+<div id="cdPanel" class="hide"><div class="cdBox">
+ <h3>⚙ Cài đặt quét</h3>
+ <div>Tốc độ chấm: <b id="cdTV">2 s</b></div>
+ <input type="range" id="cdT" min="0.5" max="5" step="0.5" value="2">
+ <div class="cdNote">Thời gian phải <b>giữ yên phiếu</b> sau khi thấy đủ 4 góc thì máy mới chấm. Chậm hơn = chính xác hơn. Gợi ý: <b>2–3 s</b>.</div>
+ <div class="cdRow"><span>Đọc đối chiếu nhiều lần</span><select id="cdN" style="width:auto;font-size:16px"><option value="2">2 lần</option><option value="3">3 lần</option><option value="4">4 lần</option></select></div>
+ <div class="cdNote">Máy đọc phiếu nhiều khung hình liên tiếp. Chỉ nhận điểm khi <b>các lần đọc giống nhau</b>; nếu lệch, máy báo "đọc không ổn định" và không tự lưu.</div>
+ <div class="cdRow"><span>Vừa chấm vừa xem kết quả</span><label class="sw"><input type="checkbox" id="cdXem" checked><span></span></label></div>
+ <div class="cdNote">Bật: hiện điểm và ảnh bài sau mỗi phiếu, GV bấm lưu. Tắt: phiếu đọc tốt được <b>tự lưu và quét tiếp</b> (chỉ hiện tên + điểm ở dòng trên); phiếu có lỗi/cảnh báo vẫn dừng lại cho GV xem.</div>
+ <button type="button" class="main" id="cdDong" style="width:100%;margin-top:14px">Xong</button>
+</div></div>
 <div id="man" class="hide">
  <div class="mhead">✋ <b>Đặt 4 góc:</b> kéo 4 dấu tròn vào <b>giữa 4 ô vuông đen ở 4 góc phiếu</b> — 1 trên-trái · 2 trên-phải · 3 dưới-trái · 4 dưới-phải (theo chiều chữ đọc xuôi).<br><span style="color:#9fd3ff">Khung xanh dương</span> = vùng máy đọc, <span style="color:#7dff9a">vòng xanh lá</span> = ô máy thấy ĐÃ TÔ, <span style="color:#ffb547">cam</span> = tô mờ. Chỉnh đến khi vòng xanh lá nằm đúng các ô đã tô.
  <div style="display:flex;align-items:center;gap:8px;margin-top:4px">Độ nhạy: <input type="range" id="manTh" min="0.18" max="0.55" step="0.01" value="0.35" style="flex:1"><span id="manThV">0.35</span><label style="display:flex;gap:4px;align-items:center"><input type="checkbox" id="manOv" checked> Hiện vùng đọc</label></div></div>
@@ -1019,6 +1042,18 @@ $('manOk').onclick=async()=>{const D=cornerDefs(),P=S.prep.profile,pageW=+P.page
 function manBtn(sh){return (sh.base||sh.cvUsed)?'<div style="margin-top:8px"><button type="button" id="btnMan" style="width:100%;background:#2b5fb8;color:#fff">✋ Đặt 4 góc thủ công rồi chấm lại</button></div>':'';}
 function bindMan(sh){const b=$('btnMan');if(b)b.onclick=()=>openManual(sh,false);}
 
+/* ================= CÀI ĐẶT QUÉT (lưu trên máy) ================= */
+const CD=(function(){let c={};try{c=JSON.parse(localStorage.getItem('omrDtCaiDat')||'{}')||{};}catch(e){}
+ return {t:+c.t>0?+c.t:2,n:+c.n>=2?+c.n:3,xem:c.xem!==false};})();
+function cdLuu(){try{localStorage.setItem('omrDtCaiDat',JSON.stringify(CD));}catch(e){}cdHien();}
+function cdHien(){$('cdT').value=CD.t;$('cdTV').textContent=String(CD.t).replace('.',',')+' s';$('cdN').value=String(CD.n);$('cdXem').checked=CD.xem;
+ $('cdTomTat').textContent=String(CD.t).replace('.',',')+' s · đọc '+CD.n+' lần · '+(CD.xem?'xem kết quả':'tự lưu, quét liên tục');}
+$('cdT').oninput=()=>{CD.t=+$('cdT').value;cdLuu();};$('cdN').onchange=()=>{CD.n=+$('cdN').value;cdLuu();};$('cdXem').onchange=()=>{CD.xem=$('cdXem').checked;cdLuu();};
+function cdMo(){cdHien();$('cdPanel').classList.remove('hide');if(L.stream)L.paused=true;}
+function cdDong(){$('cdPanel').classList.add('hide');if(L.stream&&$('liveRes').classList.contains('hide')){L.paused=false;L.hold=0;L.t0=0;}}
+$('btnCaiDat').onclick=cdMo;$('liveCd').onclick=cdMo;$('cdDong').onclick=cdDong;$('cdPanel').onclick=e=>{if(e.target.id==='cdPanel')cdDong();};
+cdHien();
+
 /* ================= QUÉT TRỰC TIẾP BẰNG CAMERA ================= */
 const L={stream:null,timer:null,busy:false,hold:0,last:null,paused:false,track:null,torch:false};
 function liveMsg(t){$('liveMsg').innerHTML=t;}
@@ -1063,18 +1098,44 @@ async function liveTick(){
   const mv=L.last?Math.max(...pts.map((p,i)=>Math.hypot(p.x-L.last[i].x,p.y-L.last[i].y))):1e9;L.last=pts;
   if(L.needClear){if(L.donePts&&Math.max(...pts.map((p,i)=>Math.hypot(p.x-L.donePts[i].x,p.y-L.donePts[i].y)))>v.videoWidth*0.08)L.needClear=false;
    else{liveMsg('✔ Phiếu này đã xong — <b>đổi sang phiếu tiếp theo</b>…');L.busy=false;return;}}
-  if(mv<v.videoWidth*0.045)L.hold++;else L.hold=1;
-  if(L.hold<2){liveMsg('Đã thấy đủ 4 góc — <b>giữ yên tay</b>…');L.busy=false;return;}
+  if(mv<v.videoWidth*0.04&&L.hold>0&&L.t0)L.hold++;else{L.hold=1;L.t0=Date.now();}
+  const canMs=CD.t*1000,da=Date.now()-L.t0;
+  if(da<canMs){liveMsg('Đã thấy đủ 4 góc — <b>giữ yên tay</b>… '+((canMs-da)/1000).toFixed(1).replace('.',',')+' s');L.busy=false;return;}
   // chụp khung hình đầy đủ và chấm
   L.paused=true;liveMsg('Đang chấm…');if(navigator.vibrate)navigator.vibrate(40);
   L.donePts=pts;const full=frameCanvas(2400);
-  await liveGrade(full);
+  await liveGrade(full,true);
  }catch(e){liveMsg('Lỗi: '+esc(e.message||e));}
  L.busy=false;
 }
-async function liveGrade(full){
+// Ký hiệu 1 lần đọc: SBD + mã đề + toàn bộ đáp án đã tô
+function docKy(R){return JSON.stringify([String(R.sbd||''),String(R.maDe||''),R.ans||{}]);}
+function cauLech(list){const out=[];['I','II','III'].forEach(p=>{const ks=new Set();list.forEach(R=>Object.keys((R.ans||{})[p]||{}).forEach(k=>ks.add(k)));
+ [...ks].sort((a,b)=>parseInt(a)-parseInt(b)).forEach(k=>{const v=list.map(R=>JSON.stringify(((R.ans||{})[p]||{})[k]??''));if(new Set(v).size>1)out.push(p+'.'+k);});});
+ if(new Set(list.map(R=>String(R.sbd||''))).size>1)out.unshift('SBD');if(new Set(list.map(R=>String(R.maDe||''))).size>1)out.unshift('Mã đề');return out;}
+async function liveGrade(full,doiChieu){
  const sh={name:'DT_'+stamp()+'.jpg',sbd:'',maDe:'',answers:{I:{},II:{},III:{}},warn:[],score:null,scoreError:'',edited:false};S.cur=sh;
- try{const r=await readCanvas(full);sh.base=r.base;if(r.error)sh.alignError=r.error;else{sh.cvUsed=r.cv;sh.A=r.A;applyRead(sh,r.R);}}catch(e){sh.alignError=e.message;}
+ try{
+  if(!doiChieu||CD.n<2){const r=await readCanvas(full);sh.base=r.base;if(r.error)sh.alignError=r.error;else{sh.cvUsed=r.cv;sh.A=r.A;applyRead(sh,r.R);}}
+  else{
+   // Đọc nhiều khung hình liên tiếp, chỉ nhận khi đa số lần đọc GIỐNG HỆT nhau
+   const reads=[];let lastErr='',frame=full;
+   for(let i=0;i<CD.n+2&&reads.length<CD.n;i++){
+    if(i>0){liveMsg('Đang chấm… đối chiếu lần '+(reads.length+1)+'/'+CD.n);await new Promise(r=>setTimeout(r,60));frame=frameCanvas(2400);if(!frame)break;}
+    try{const r=await readCanvas(frame);if(r.error)lastErr=r.error;else reads.push(r);}catch(e){lastErr=e.message;}
+   }
+   if(!reads.length){sh.alignError=lastErr||'Không đọc được phiếu';}
+   else{
+    const dem={};reads.forEach(r=>{const k=docKy(r.R);dem[k]=(dem[k]||0)+1;});
+    let bestK=null;Object.keys(dem).forEach(k=>{if(!bestK||dem[k]>dem[bestK])bestK=k;});
+    const best=reads.find(r=>docKy(r.R)===bestK);
+    sh.base=best.base;sh.cvUsed=best.cv;sh.A=best.A;applyRead(sh,best.R);
+    const can=Math.max(2,Math.ceil(CD.n/2+0.01));   // 2/2, 2/3, 3/4
+    if(reads.length<2||dem[bestK]<can){const ds=cauLech(reads.map(r=>r.R));
+     sh.warn=sh.warn.concat(['Đọc KHÔNG ỔN ĐỊNH giữa '+reads.length+' lần quét'+(ds.length?' (lệch ở: '+ds.slice(0,8).join(', ')+(ds.length>8?'…':'')+')':'')+' — giữ phiếu phẳng, yên hơn rồi Quét lại, hoặc kiểm tra kỹ trước khi lưu.']);}
+   }
+  }
+ }catch(e){sh.alignError=e.message;}
  if(!sh.alignError)await grade(sh);
  const e=errorsOf(sh),st=S.roster[sh.sbd]||{};
  if(sh.alignError){if(L.manualShot){openManual(sh,true);return;}L.paused=false;L.hold=0;liveMsg('Chưa đọc được phiếu ('+esc(sh.alignError)+') — giữ phiếu phẳng, thẳng hơn, hoặc bấm 📸 Chụp ngay rồi đặt 4 góc.');return;}
@@ -1082,6 +1143,12 @@ async function liveGrade(full){
 }
 async function showLiveRes(sh){
  const e=errorsOf(sh),st=S.roster[sh.sbd]||{};
+ if(!CD.xem&&!isC2()&&!e.length&&!sh.warn.length&&!S.saved[sh.sbd]&&sh.score){
+  liveMsg('Đang lưu SBD '+esc(sh.sbd)+'…');try{sh.preview=await annotate(sh);}catch(_){}
+  const ok=await saveQuiet(sh);
+  if(ok){if(navigator.vibrate)navigator.vibrate(120);L.paused=false;L.hold=0;L.t0=0;L.last=null;L.needClear=true;
+   liveMsg('✔ <b>'+esc(st.ten||('SBD '+sh.sbd))+'</b> — <b style="font-size:22px">'+esc(sh.score.diem)+'</b> điểm · đã lưu. Đổi phiếu tiếp theo…');return;}
+ }
  let img='';try{img=await annotate(sh);sh.preview=img;}catch(_){}
  const box=$('liveRes');box.classList.remove('hide');liveMsg('');
  box.innerHTML=(st.ten?'<div style="font-size:20px;font-weight:bold">'+esc(st.ten)+'</div><div>SBD '+esc(sh.sbd)+' · Lớp '+esc(st.lop||'')+' · Mã đề '+esc(sh.maDe)+'</div>':'<div>SBD đọc được: '+esc(sh.sbd||'?')+' · Mã đề '+esc(sh.maDe||'?')+(isC2()?' · <b>C2: chỉ xem điểm</b>':'')+'</div>')+
@@ -1091,7 +1158,7 @@ async function showLiveRes(sh){
   (img?'<img src="'+img+'" alt="Phiếu đã chấm">':'')+
   '<div class="row" style="margin-top:10px"><button id="lvAgain">↺ Quét lại</button>'+(isC2()?(e.length?'<button class="main" id="lvFix">✎ Sửa mã đề</button>':'<button class="main" id="lvNext">➡ Phiếu tiếp theo</button>'):e.length?'<button class="main" id="lvFix">✎ Sửa SBD / mã đề</button><button id="lvKho" style="background:#b26a00;color:#fff">📦 Vào Kho</button>':'<button class="main" id="lvSave">💾 Lưu & quét tiếp</button>')+'</div><div class="row" style="margin-top:8px"><button id="lvMan" style="background:#2b5fb8;color:#fff">✋ Đặt 4 góc thủ công</button></div>';
  if(navigator.vibrate)navigator.vibrate(e.length?[80,60,80]:120);
- const resume=(next)=>{box.classList.add('hide');L.paused=false;L.hold=0;L.last=null;L.needClear=!!next;liveMsg(next?'Đổi sang phiếu tiếp theo…':'Đưa phiếu vào khung…');};
+ const resume=(next)=>{box.classList.add('hide');L.paused=false;L.hold=0;L.t0=0;L.last=null;L.needClear=!!next;liveMsg(next?'Đổi sang phiếu tiếp theo…':'Đưa phiếu vào khung…');};
  $('lvAgain').onclick=()=>resume(false);bindTl(sh,'tlL');c2Hist(sh);if($('lvNext'))$('lvNext').onclick=()=>resume(true);
  $('lvMan').onclick=()=>{box.classList.add('hide');openManual(sh,true);};
  if($('lvKho'))$('lvKho').onclick=async()=>{const b=$('lvKho');b.disabled=true;b.textContent='Đang gửi…';try{await sendKho(sh);liveMsg('📦 Đã gửi vào Kho. Đổi sang phiếu tiếp theo…');resume(true);}catch(e){alert('Chưa gửi được: '+e.message);b.disabled=false;b.textContent='📦 Vào Kho';}};
