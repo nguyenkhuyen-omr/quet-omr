@@ -107,7 +107,7 @@ img.prev{width:100%;border:1px solid #ccd8d0;border-radius:8px;margin-top:8px}
   <div id="daForm"></div>
   <div id="daWBox"><div class="da-sec">Điểm</div>
   <div class="row w4"><div><label>Tổng điểm Phần I</label><input type="text" inputmode="decimal" id="wI"></div><div><label>Tổng điểm Phần III</label><input type="text" inputmode="decimal" id="wIII"></div></div>
-  <label style="margin-top:6px">Phần II – điểm khi đúng 1 / 2 / 3 / 4 ý</label><div class="row w4"><input type="text" inputmode="decimal" id="wII1"><input type="text" inputmode="decimal" id="wII2"><input type="text" inputmode="decimal" id="wII3"><input type="text" inputmode="decimal" id="wII4"></div>
+  <div class="row w4" style="margin-top:6px"><div><label>Câu Đúng/Sai chỉ 1 ý (Ngữ văn) – điểm/câu</label><input type="text" inputmode="decimal" id="wDS1"></div><div></div></div><label style="margin-top:6px">Phần II – điểm khi đúng 1 / 2 / 3 / 4 ý</label><div class="row w4"><input type="text" inputmode="decimal" id="wII1"><input type="text" inputmode="decimal" id="wII2"><input type="text" inputmode="decimal" id="wII3"><input type="text" inputmode="decimal" id="wII4"></div>
   <div class="row w4" style="margin-top:6px"><div><label>Làm tròn</label><select id="wRound"><option value="none">Không</option><option value="0.1">0,1</option><option value="0.25">0,25</option><option value="0.5">0,5</option></select></div><div id="wSum" class="muted" style="align-self:end"></div></div></div>
   <button type="button" class="main" id="daSave" style="width:100%;margin-top:10px">💾 Lưu đáp án</button>
   <div id="daMsg" class="muted" style="margin-top:6px"></div>
@@ -566,10 +566,13 @@ async function readCanvas(base){
 
 /* ================= ĐÁP ÁN TRÊN ĐIỆN THOẠI (A: lưu lên đợt · C3: chỉ trên máy) ================= */
 const DA={codes:{},w:null,cur:'',dirty:false,srv:null};
-function structure(){if(!S.structure||S._strP!==S.prep){if(mode()==='C3'&&S.bai){const c=S.bai.cau,o={I:{},II:{},III:{}};for(let q=1;q<=c.nI;q++)o.I[q]='';for(let q=1;q<=c.nII;q++)o.II[q]=['','','',''];for(let q=1;q<=c.nIII;q++)o.III[q]='';S.structure=o;}else S.structure=decodeAll(null,null).ans;S._strP=S.prep;}return S.structure;}
+function structure(){if(!S.structure||S._strP!==S.prep){if(mode()==='C3'&&S.bai){const c=S.bai.cau,o={I:{},II:{},III:{}};let bs=null;try{bs=decodeAll(null,null).ans;}catch(_){}for(let q=1;q<=c.nI;q++)o.I[q]='';for(let q=1;q<=c.nII;q++)o.II[q]=((bs&&bs.II[q])||['','','','']).map(()=>'');for(let q=1;q<=c.nIII;q++)o.III[q]='';S.structure=o;}else S.structure=decodeAll(null,null).ans;S._strP=S.prep;}return S.structure;}
+/* Số lựa chọn của 1 câu Phần I (A–D / A–E / A–F theo mẫu phiếu) và số ý của 1 câu Phần II (4 ý hoặc 1 ý) */
+function optN(q){try{const P=S.prep&&S.prep.profile;if(!P)return 4;fixQ(P);const z=(P.zones||[]).find(z=>z.type==='I'&&+z.qStart&&+q>=+z.qStart&&+q<=+z.qEnd);if(!z)return 4;const g=geom(z),n=nQ(z);return Math.max(2,Math.min(8,g.rows===n?g.cols:g.cols===n?g.rows:g.cols));}catch(_){return 4;}}
+function yN(q){const a=(structure().II||{})[q];return Array.isArray(a)&&a.length?a.length:4;}
 function daKey(){return 'omrDtLocal_'+(S.prep&&S.prep.profile&&S.prep.profile.profile?S.prep.profile.profile.id:'x');}
 function daLocal(){return S.bai?{codes:S.bai.codes||{},w:baiW(),cau:S.bai.cau}:{codes:{},w:null};}
-function wDef(){const T=structure(),nI=Object.keys(T.I).length,nIII=Object.keys(T.III).length;return{tongI:nI?+(nI*.25).toFixed(2):0,ii:[0.1,0.25,0.5,1],tongIII:nIII?+(nIII*.25).toFixed(2):0,lamTron:'none'};}
+function wDef(){const T=structure(),nI=Object.keys(T.I).length,nIII=Object.keys(T.III).length;return{tongI:nI?+(nI*.25).toFixed(2):0,ii:[0.1,0.25,0.5,1],ds1:0.25,tongIII:nIII?+(nIII*.25).toFixed(2):0,lamTron:'none'};}
 function num(v){const n=parseFloat(String(v==null?'':v).replace(',','.'));return isNaN(n)?0:n;}
 function daInfo(){if(!S.prep)return;const m=mode();
  $('daTitle').textContent=m==='C3'?'🔑 Đáp án bài chấm':'📝 Đáp án của đợt (lưu lên hệ thống)';
@@ -581,21 +584,21 @@ async function daOpen(){const ed=$('daEd');if(!ed.classList.contains('hide')){ed
   else{const r=await gas('omrDtDapAnLoad',S.prep.exam.id);DA.srv=r;DA.codes=r.codes||{};DA.w=r.w||wDef();}
   DA.cur=Object.keys(DA.codes)[0]||'';DA.dirty=false;daW();daCodes();$('daMsg').textContent=mode()==='C3'?'Đáp án chỉ lưu trên điện thoại này.':(DA.srv&&DA.srv.version?'Phiên bản đáp án hiện tại: '+DA.srv.version+(DA.srv.updatedAt?' · '+DA.srv.updatedAt:''):'Đợt chưa có đáp án.');}
  catch(e){$('daMsg').innerHTML='<span class="bad">'+esc(e.message)+'</span>';}}
-function daW(){const w=DA.w;$('wI').value=w.tongI;$('wIII').value=w.tongIII;[0,1,2,3].forEach(i=>$('wII'+(i+1)).value=(w.ii||[])[i]??'');$('wRound').value=w.lamTron||'none';daSum();}
-function daReadW(){DA.w={tongI:num($('wI').value),tongIII:num($('wIII').value),ii:[1,2,3,4].map(i=>num($('wII'+i).value)),lamTron:$('wRound').value};}
-function daSum(){daReadW();const T=structure(),c=DA.codes[DA.cur];const nII=c?Object.keys(c.II||{}).filter(q=>(c.II[q]||[]).some(v=>v)).length:Object.keys(T.II).length;
- $('wSum').innerHTML='Tối đa: <b>'+(Math.round((DA.w.tongI+DA.w.tongIII+nII*Math.max(...DA.w.ii))*100)/100)+'</b> điểm';}
+function daW(){const w=DA.w;$('wDS1').value=w.ds1!=null?w.ds1:0.25;$('wI').value=w.tongI;$('wIII').value=w.tongIII;[0,1,2,3].forEach(i=>$('wII'+(i+1)).value=(w.ii||[])[i]??'');$('wRound').value=w.lamTron||'none';daSum();}
+function daReadW(){DA.w={ds1:num($('wDS1').value),tongI:num($('wI').value),tongIII:num($('wIII').value),ii:[1,2,3,4].map(i=>num($('wII'+i).value)),lamTron:$('wRound').value};}
+function daSum(){daReadW();const T=structure(),c=DA.codes[DA.cur];const qs=c?Object.keys(c.II||{}).filter(q=>(c.II[q]||[]).some(v=>v)):Object.keys(T.II);const n1=qs.filter(q=>yN(q)===1).length,n4=qs.length-n1;
+ $('wSum').innerHTML='Tối đa: <b>'+(Math.round((DA.w.tongI+DA.w.tongIII+n4*Math.max(...DA.w.ii)+n1*(DA.w.ds1||0))*100)/100)+'</b> điểm';}
 function daCodes(){const ks=Object.keys(DA.codes).sort();$('daCode').innerHTML=ks.length?ks.map(c=>'<option'+(c===DA.cur?' selected':'')+'>'+esc(c)+'</option>').join(''):'<option value="">(chưa có — thêm mã đề)</option>';daForm();}
 function daForm(){const c=DA.codes[DA.cur];if(!c){$('daForm').innerHTML='<p class="muted">Thêm mã đề để nhập đáp án.</p>';return;}
  const T=structure(),qs=o=>Object.keys(o).sort((a,b)=>(+a)-(+b));let h='';
- if(qs(T.I).length)h+='<div class="da-sec">Phần I</div>'+qs(T.I).map(q=>'<div class="da-q"><b>'+q+'</b>'+['A','B','C','D'].map(L=>'<button type="button" data-i="'+q+'" data-v="'+L+'" class="'+((c.I[q]||'')===L?'on':'')+'">'+L+'</button>').join('')+'</div>').join('');
- if(qs(T.II).length)h+='<div class="da-sec">Phần II (bấm để đổi Đ ↔ S · ý chưa chọn Đ là SAI)</div>'+qs(T.II).map(q=>'<div class="da-q"><b>'+q+'</b>'+[0,1,2,3].map(k=>{const v=((c.II[q]||[])[k]||'').toUpperCase();const dd=v==='D'||v==='Đ';return '<button type="button" data-ii="'+q+'" data-k="'+k+'" class="'+(dd?'on':'s')+'">'+'abcd'[k]+(dd?' Đ':' S')+'</button>';}).join('')+'</div>').join('');
+ if(qs(T.I).length)h+='<div class="da-sec">Phần I</div>'+qs(T.I).map(q=>'<div class="da-q"><b>'+q+'</b>'+LET.slice(0,optN(q)).split('').map(L=>'<button type="button" data-i="'+q+'" data-v="'+L+'" class="'+((c.I[q]||'')===L?'on':'')+'">'+L+'</button>').join('')+'</div>').join('');
+ if(qs(T.II).length)h+='<div class="da-sec">Phần II (bấm để đổi Đ ↔ S · ý chưa chọn Đ là SAI)</div>'+qs(T.II).map(q=>'<div class="da-q"><b>'+q+'</b>'+Array.from({length:yN(q)},(_,k)=>k).map(k=>{const v=((c.II[q]||[])[k]||'').toUpperCase();const dd=v==='D'||v==='Đ';return '<button type="button" data-ii="'+q+'" data-k="'+k+'" class="'+(dd?'on':'s')+'">'+(yN(q)===1?'':'abcd'[k])+(dd?' Đ':' S')+'</button>';}).join('')+'</div>').join('');
  if(qs(T.III).length)h+='<div class="da-sec">Phần III</div>'+qs(T.III).map(q=>'<div class="da-q"><b>'+q+'</b><input type="text" inputmode="decimal" data-iii="'+q+'" value="'+esc(c.III[q]||'')+'" placeholder="vd -2,5"></div>').join('');
  $('daForm').innerHTML=h||'<p class="muted">Mẫu phiếu chưa có vùng Phần I/II/III.</p>';
  $('daForm').querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{const q=b.dataset.i;c.I[q]=c.I[q]===b.dataset.v?'':b.dataset.v;DA.dirty=true;daForm();});
- $('daForm').querySelectorAll('[data-ii]').forEach(b=>b.onclick=()=>{const q=b.dataset.ii,k=+b.dataset.k;c.II[q]=c.II[q]||['','','',''];const v=(c.II[q][k]||'').toUpperCase();c.II[q][k]=(v==='D'||v==='Đ')?'S':'D';DA.dirty=true;daForm();daSum();});
+ $('daForm').querySelectorAll('[data-ii]').forEach(b=>b.onclick=()=>{const q=b.dataset.ii,k=+b.dataset.k;c.II[q]=c.II[q]||Array(yN(q)).fill('');const v=(c.II[q][k]||'').toUpperCase();c.II[q][k]=(v==='D'||v==='Đ')?'S':'D';DA.dirty=true;daForm();daSum();});
  $('daForm').querySelectorAll('[data-iii]').forEach(i=>i.oninput=()=>{c.III[i.dataset.iii]=i.value.trim().replace('.',',');DA.dirty=true;});}
-function daNorm(codes){const o={};Object.keys(codes).forEach(m=>{const c=codes[m];o[m]={I:Object.assign({},c.I),II:{},III:Object.assign({},c.III)};Object.keys(c.II||{}).forEach(q=>{const a=[0,1,2,3].map(k=>{let v=String((c.II[q]||[])[k]||'').toUpperCase();return v==='Đ'?'D':v;});if(a.some(v=>v))o[m].II[q]=a.map(v=>v||'S');});});return o;}
+function daNorm(codes){const o={};Object.keys(codes).forEach(m=>{const c=codes[m];o[m]={I:Object.assign({},c.I),II:{},III:Object.assign({},c.III)};Object.keys(c.II||{}).forEach(q=>{const a=Array.from({length:yN(q)},(_,k)=>k).map(k=>{let v=String((c.II[q]||[])[k]||'').toUpperCase();return v==='Đ'?'D':v;});if(a.some(v=>v))o[m].II[q]=a.map(v=>v||'S');});});return o;}
 async function daSave(){daReadW();const codes=daNorm(DA.codes);const n=Object.keys(codes).length;if(!n){$('daMsg').innerHTML='<span class="bad">Chưa có mã đề nào.</span>';return;}
  if(mode()==='C3'){if(!S.bai)return;S.bai.codes=codes;if((S.bai.kq||[]).length)baiRegrade(S.bai);baiPersist();S.prep.codes=Object.keys(codes);S.codes={};Object.keys(codes).forEach(c=>S.codes[c]=1);
   DA.dirty=false;$('daMsg').innerHTML='<span class="ok">✔ Đã lưu '+n+' mã đề vào bài “'+esc(S.bai.ten)+'”.</span>';baiMenu();show('stepDA',true);$('daEd').classList.remove('hide');return;}
@@ -611,8 +614,8 @@ function gradeLocal(L,maDe,a){const k=(L.codes||{})[maDe];if(!k)return{error:'M�
  const lim=(L.cau||{}),inN=(q,n)=>n==null||(+q>=1&&+q<=+n);const qI=Object.keys(k.I||{}).filter(q=>k.I[q]&&inN(q,lim.nI)),qII=Object.keys(k.II||{}).filter(q=>(k.II[q]||[]).some(v=>v)&&inN(q,lim.nII)),qIII=Object.keys(k.III||{}).filter(q=>String(k.III[q]||'').trim()&&inN(q,lim.nIII));
  const wI=w.dI!=null?w.dI:(qI.length?w.tongI/qI.length:0),wIII=w.dIII!=null?w.dIII:(qIII.length?w.tongIII/qIII.length:0);
  qI.forEach(q=>{const ans=k.I[q],got=String((a.I||{})[q]||'').toUpperCase();const kq=!got?'T':(got==='*'||got.length>1)?'L':got===ans?'D':'S';if(kq==='D')p1+=wI;tk.I[{D:'dung',S:'sai',T:'trong',L:'loi'}[kq]]++;ct.push(['I',q,got,ans,kq,kq==='D'?r2(wI):0]);});
- qII.forEach(q=>{const key=[0,1,2,3].map(i=>(k.II[q]||[])[i]||''),got=(a.II||{})[q]||[];let n=0;const gs=[],as=[];for(let i=0;i<key.length;i++){let kk=String(key[i]||'').toUpperCase();if(kk==='Đ')kk='D';if(!kk)kk='S';const gg=String(got[i]||'').toUpperCase();as.push(kk||'?');gs.push(gg||'_');if(!gg)tk.II.trong++;else if(gg==='*')tk.II.loi++;else if(kk&&gg===kk){n++;tk.II.dung++;}else tk.II.sai++;}
-  const d=n>0?(w.ii[n-1]||0):0;p2+=d;ct.push(['II',q,gs.join(''),as.join(''),n+'/'+key.length,r2(d)]);});
+ qII.forEach(q=>{const kL=yN(q),key=Array.from({length:kL},(_,i)=>(k.II[q]||[])[i]||''),got=(a.II||{})[q]||[];let n=0;const gs=[],as=[];for(let i=0;i<key.length;i++){let kk=String(key[i]||'').toUpperCase();if(kk==='Đ')kk='D';if(!kk)kk='S';const gg=String(got[i]||'').toUpperCase();as.push(kk||'?');gs.push(gg||'_');if(!gg)tk.II.trong++;else if(gg==='*')tk.II.loi++;else if(kk&&gg===kk){n++;tk.II.dung++;}else tk.II.sai++;}
+  const d=key.length===1?(n?(w.ds1!=null?+w.ds1:.25):0):(n>0?(w.ii[n-1]||0):0);p2+=d;ct.push(['II',q,gs.join(''),as.join(''),n+'/'+key.length,r2(d)]);});
  const same=(x,y)=>{const nx=parseFloat(String(x).replace(',','.')),ny=parseFloat(String(y).replace(',','.'));return !isNaN(nx)&&!isNaN(ny)?Math.abs(nx-ny)<1e-9:String(x).replace('.',',')===String(y).replace('.',',');};
  qIII.forEach(q=>{const ans=k.III[q],got=String((a.III||{})[q]||'');const kq=!got?'T':got[0]==='!'?'L':same(ans,got)?'D':'S';if(kq==='D')p3+=wIII;tk.III[{D:'dung',S:'sai',T:'trong',L:'loi'}[kq]]++;ct.push(['III',q,got,ans,kq,kq==='D'?r2(wIII):0]);});
  const step={'0.1':.1,'0.25':.25,'0.5':.5}[w.lamTron],tot=p1+p2+p3,diem=step?r2(Math.round(tot/step)*step):r2(tot);
@@ -622,8 +625,8 @@ $('daToggle').onclick=daOpen;$('daCode').onchange=()=>{DA.cur=$('daCode').value;
 $('daAdd').onclick=()=>{const m=$('daNew').value.trim();if(!/^[A-Za-z0-9]{1,10}$/.test(m)){alert('Mã đề chỉ gồm chữ/số.');return;}if(!DA.codes[m])DA.codes[m]={I:{},II:{},III:{}};DA.cur=m;$('daNew').value='';DA.dirty=true;daCodes();};
 $('daDel').onclick=()=>{if(!DA.cur||!confirm('Bỏ mã đề '+DA.cur+' khỏi bộ đáp án (chỉ có hiệu lực khi bấm Lưu)?'))return;delete DA.codes[DA.cur];DA.cur=Object.keys(DA.codes)[0]||'';DA.dirty=true;daCodes();};
 $('daCopy').onclick=()=>{const ks=Object.keys(DA.codes).filter(c=>c!==DA.cur);if(!DA.cur||!ks.length){alert('Cần ít nhất 2 mã đề.');return;}const f=prompt('Chép đáp án từ mã đề nào sang '+DA.cur+'? ('+ks.join(', ')+')',ks[0]);if(!f||!DA.codes[f])return;DA.codes[DA.cur]=JSON.parse(JSON.stringify(DA.codes[f]));DA.dirty=true;daForm();};
-$('daFastGo').onclick=()=>{const c=DA.codes[DA.cur];if(!c){alert('Chọn hoặc thêm mã đề trước.');return;}const t=$('daFast').value.toUpperCase().replace(/[^ABCD_]/g,'');const qs=Object.keys(structure().I).sort((a,b)=>(+a)-(+b));t.split('').forEach((L,i)=>{if(qs[i])c.I[qs[i]]=L==='_'?'':L;});DA.dirty=true;daForm();};
-['wI','wIII','wII1','wII2','wII3','wII4'].forEach(id=>$(id).oninput=daSum);$('wRound').onchange=daSum;$('daSave').onclick=daSave;
+$('daFastGo').onclick=()=>{const c=DA.codes[DA.cur];if(!c){alert('Chọn hoặc thêm mã đề trước.');return;}const t=$('daFast').value.toUpperCase().replace(/[^A-H_]/g,'');const qs=Object.keys(structure().I).sort((a,b)=>(+a)-(+b));t.split('').forEach((L,i)=>{if(qs[i])c.I[qs[i]]=L==='_'?'':L;});DA.dirty=true;daForm();};
+['wI','wIII','wII1','wII2','wII3','wII4','wDS1'].forEach(id=>$(id).oninput=daSum);$('wRound').onchange=daSum;$('daSave').onclick=daSave;
 
 
 /* ================= C3 · BÀI CHẤM CỦA TÔI (lưu trên điện thoại) ================= */
@@ -631,8 +634,8 @@ const KY=['TX1','TX2','TX3','TX4','Giữa HK1','Cuối HK1','Giữa HK2','Cuối
 function baiAll(){try{return JSON.parse(localStorage.getItem('omrDtBai')||'[]');}catch(e){return[];}}
 function baiPutAll(a){try{localStorage.setItem('omrDtBai',JSON.stringify(a));return true;}catch(e){alert('Bộ nhớ điện thoại đầy, không lưu được: '+e.message);return false;}}
 function baiPersist(){if(!S.bai)return;const a=baiAll(),i=a.findIndex(x=>x.id===S.bai.id);if(i>=0)a[i]=S.bai;else a.unshift(S.bai);baiPutAll(a);}
-function baiW(b){b=b||S.bai;const c=b.cau;return{dI:+c.dI||0,dIII:+c.dIII||0,ii:(c.ii||[0.1,0.25,0.5,1]).map(Number),lamTron:c.lamTron||'none',tongI:(+c.dI||0)*(+c.nI||0),tongIII:(+c.dIII||0)*(+c.nIII||0)};}
-function baiMax(b){b=b||S.bai;const c=b.cau,w=baiW(b);return Math.round(((+c.nI||0)*w.dI+(+c.nII||0)*Math.max(...w.ii)+(+c.nIII||0)*w.dIII)*100)/100;}
+function baiW(b){b=b||S.bai;const c=b.cau;return{ds1:c.ds1!=null?+c.ds1:.25,dI:+c.dI||0,dIII:+c.dIII||0,ii:(c.ii||[0.1,0.25,0.5,1]).map(Number),lamTron:c.lamTron||'none',tongI:(+c.dI||0)*(+c.nI||0),tongIII:(+c.dIII||0)*(+c.nIII||0)};}
+function baiMax(b){b=b||S.bai;const c=b.cau,w=baiW(b);let n1=0;try{const T=decodeAll(null,null).ans;for(let q=1;q<=(+c.nII||0);q++)if((T.II[q]||[]).length===1)n1++;}catch(_){}return Math.round(((+c.nI||0)*w.dI+((+c.nII||0)-n1)*Math.max(...w.ii)+n1*w.ds1+(+c.nIII||0)*w.dIII)*100)/100;}
 async function mauGet(id){const k='omrDtMau_'+id;try{const m=await gas('omrDtLayMau',id);try{localStorage.setItem(k,JSON.stringify(m));}catch(_){}return m;}
  catch(e){try{const c=JSON.parse(localStorage.getItem(k)||'null');if(c)return c;}catch(_){}throw e;}}
 async function mauList(){if(S.maus)return S.maus;S.maus=await gas('omrDtDsMau');return S.maus;}
@@ -654,13 +657,13 @@ async function baiForm(b){const isNew=!b;b=b||{id:'B'+Date.now().toString(36),te
   '<label style="margin-top:8px">4. Cấu trúc đề</label>'+
   '<div class="row w4"><div><label>Phần I · số câu</label><input type="text" inputmode="numeric" id="bnI" value="'+c.nI+'"></div><div><label>Điểm 1 câu</label><input type="text" inputmode="decimal" id="bdI" value="'+c.dI+'"></div></div>'+
   '<div class="row w4"><div><label>Phần II · số câu</label><input type="text" inputmode="numeric" id="bnII" value="'+c.nII+'"></div><div></div></div>'+
-  '<div class="muted">Điểm 1 câu Phần II khi đúng 1 / 2 / 3 / 4 ý:</div><div class="row w4">'+[0,1,2,3].map(k=>'<input type="text" inputmode="decimal" id="bii'+k+'" value="'+(c.ii[k]??'')+'">').join('')+'</div>'+
+  '<div class="row w4"><div><label>Đ/S 1 ý (Ngữ văn) · điểm/câu</label><input type="text" inputmode="decimal" id="bds1" value="'+(c.ds1!=null?c.ds1:0.25)+'"></div><div></div></div><div class="muted">Điểm 1 câu Phần II (loại 4 ý) khi đúng 1 / 2 / 3 / 4 ý:</div><div class="row w4">'+[0,1,2,3].map(k=>'<input type="text" inputmode="decimal" id="bii'+k+'" value="'+(c.ii[k]??'')+'">').join('')+'</div>'+
   '<div class="row w4"><div><label>Phần III · số câu</label><input type="text" inputmode="numeric" id="bnIII" value="'+c.nIII+'"></div><div><label>Điểm 1 câu</label><input type="text" inputmode="decimal" id="bdIII" value="'+c.dIII+'"></div></div>'+
   '<div class="row w4"><div><label>Làm tròn</label><select id="bRound">'+[['none','Không'],['0.1','0,1'],['0.25','0,25'],['0.5','0,5']].map(o=>'<option value="'+o[0]+'"'+(o[0]===c.lamTron?' selected':'')+'>'+o[1]+'</option>').join('')+'</select></div><div id="bMax" class="muted" style="align-self:end"></div></div>'+
   '<div id="bMsg" class="muted"></div><div class="row" style="margin-top:10px"><button type="button" id="bHuy">Huỷ</button><button type="button" class="main" id="bLuu">💾 Lưu bài chấm</button></div>';
- const rd=()=>({nI:parseInt($('bnI').value)||0,dI:num($('bdI').value),nII:parseInt($('bnII').value)||0,ii:[0,1,2,3].map(k=>num($('bii'+k).value)),nIII:parseInt($('bnIII').value)||0,dIII:num($('bdIII').value),lamTron:$('bRound').value});
+ const rd=()=>({ds1:num($('bds1').value),nI:parseInt($('bnI').value)||0,dI:num($('bdI').value),nII:parseInt($('bnII').value)||0,ii:[0,1,2,3].map(k=>num($('bii'+k).value)),nIII:parseInt($('bnIII').value)||0,dIII:num($('bdIII').value),lamTron:$('bRound').value});
  const mx=()=>{const t=Object.assign({},b,{cau:rd()});$('bMax').innerHTML='Tổng tối đa: <b>'+baiMax(t)+'</b> điểm';};mx();
- ['bnI','bdI','bnII','bii0','bii1','bii2','bii3','bnIII','bdIII'].forEach(id=>$(id).oninput=mx);
+ ['bnI','bdI','bnII','bii0','bii1','bii2','bii3','bnIII','bdIII','bds1'].forEach(id=>$(id).oninput=mx);
  $('bHuy').onclick=()=>isNew?baiListView():baiOpen(b.id);
  $('bPhieu').onclick=()=>{const v=$('bMau').value;if(!v){$('bPhieuMsg').innerHTML='<span class="bad">Chọn mẫu phiếu trước.</span>';return;}taiPhieuIn(v,$('bMau').selectedOptions[0].textContent.split(' · ')[0],$('bPhieuMsg'));};
  try{const ms=await mauList();$('bMau').innerHTML='<option value="">— Chọn mẫu phiếu —</option>'+ms.map(m=>'<option value="'+esc(m.id)+'"'+(m.id===b.mauId?' selected':'')+'>'+esc(m.name)+(m.soCau?' · '+[m.soCau.I?'P.I':'',m.soCau.II?'P.II':'',m.soCau.III?'P.III':''].filter(Boolean).join('/'):'')+'</option>').join('');}
