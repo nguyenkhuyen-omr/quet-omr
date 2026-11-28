@@ -817,9 +817,21 @@ function cauKey(x,Pdef){x=vnHoa(x).replace(/\s+/g,' ');if(!x)return null;let m;
  if((m=x.match(/^(?:CAU ?)?(\d+)\s*[.\-_)]?\s*([A-D])$/)))return{P:'II',q:String(+m[1]),k:'ABCD'.indexOf(m[2])};
  if((m=x.match(/^(?:CAU ?)?(\d+)$/)))return{P:Pdef||'I',q:String(+m[1]),k:null};return null;}
 function datDA(codes,m,o,v){if(v===''||v==null||!m)return;const s=typeof v==='number'?String(v):cellT(v);if(!s)return;const c=codes[m]=codes[m]||{I:{},II:{},III:{}};
- if(o.P==='I'){const L=vnHoa(s).slice(0,1);if(/[ABCD]/.test(L))c.I[o.q]=L;}
- else if(o.P==='II'){const a=dsTF(s);if(!a.length)return;c.II[o.q]=c.II[o.q]||['','','',''];if(o.k!=null)c.II[o.q][o.k]=a[0];else [0,1,2,3].forEach(i=>c.II[o.q][i]=a[i]||'S');}
+ if(o.P==='I'){const L=vnHoa(s).slice(0,1);if(/[A-H]/.test(L))c.I[o.q]=L;}
+ else if(o.P==='II'){const a=dsTF(s);if(!a.length)return;if(o.k==null&&a.length===1){c.II[o.q]=[a[0]];return;}c.II[o.q]=c.II[o.q]||['','','',''];if(o.k!=null)c.II[o.q][o.k]=a[0];else [0,1,2,3].forEach(i=>c.II[o.q][i]=a[i]||'S');}
  else c.III[o.q]=s.replace('.',',');}
+/* File dọc KHÔNG có dòng PHẦN: mỗi phần đánh lại từ câu 1 → tách khối khi số câu quay về; đoán phần theo đáp án */
+function khoiTuDong(rows){const B=[];let cur=null,prev=0;
+ rows.forEach(r=>{if(!r.l)return;let m=r.l.match(/^(?:CAU ?)?(\d+)\s*[.\-_)]?\s*([A-D])?$/),tl=false;
+  if(!m){const t=r.l.match(/^(?:TLN|TL|TRA LOI NGAN)\s*[.\-_ ]?\s*(?:CAU ?)?(\d+)$/);if(!t)return;m=[0,t[1],''];tl=true;}
+  const n=+m[1],suf=m[2]||'';if(!cur||n<prev||(n===prev&&!suf)){cur={rows:[],tl:false};B.push(cur);}
+  if(tl)cur.tl=true;cur.rows.push({n,k:suf?'ABCD'.indexOf(suf):null,vals:r.vals});prev=n;});
+ const off={I:0,II:0,III:0},out=[];
+ B.forEach(b=>{const v=[];b.rows.forEach(x=>x.vals.forEach(t=>{const s=vnHoa(cellT(t));if(s)v.push(s);}));if(!v.length)return;
+  let P='I';if(b.tl||v.every(t=>/^-?\d*[.,]?\d+$/.test(t)))P='III';else if(b.rows.some(x=>x.k!=null))P='II';
+  else if(v.every(t=>/^[DSTF01]{4}$/.test(t.replace(/\s/g,''))))P='II';else if(v.every(t=>/^[DS]$/.test(t))&&v.some(t=>t==='S'))P='II';
+  let mx=off[P];b.rows.forEach(x=>{const q=x.n+off[P];mx=Math.max(mx,q);out.push({o:{P,q:String(q),k:x.k},vals:x.vals});});off[P]=mx;});
+ return out;}
 function docDapAn(data){
  for(let r=0;r<Math.min(20,data.length);r++){const raw=data[r]||[],row=raw.map(v=>vnHoa(v));
   const iL=row.findIndex(x=>x!=='');if(iL<0)continue;
@@ -838,6 +850,7 @@ function docDapAn(data){
   const duoi=data.slice(r+1,r+80).map(x=>vnHoa((x||[])[iL]));
   const nhan=duoi.filter(x=>/^PHAN ?(III|II|I|[123])\b/.test(x)||/^CAU ?\d/.test(x)||/^TLN?\s*\d/.test(x)||/^\d+\s*[A-D]$/.test(x)).length;
   if(nhan>=2){const cols=[];raw.forEach((v,j)=>{if(j!==iL&&cellT(v))cols.push({j,m:normMa(v)});});if(!cols.length)continue;
+   if(!duoi.some(x=>/^PHAN ?(III|II|I|[123])\b/.test(x))){khoiTuDong(data.slice(r+1).map(x=>({l:vnHoa((x||[])[iL]),vals:cols.map(c=>(x||[])[c.j])}))).forEach(it=>cols.forEach((c,ci)=>datDA(codes,c.m,it.o,it.vals[ci])));return {codes,kieu:'dọc, không ghi PHẦN (tự tách phần theo số câu)'};}
    let P='I';data.slice(r+1).forEach(x=>{if(!x)return;const l=vnHoa(x[iL]);if(!l)return;const ph=l.match(/^PHAN ?(III|II|I|[123])\b/);
     if(ph){P=ph[1]==='1'||ph[1]==='I'?'I':ph[1]==='2'||ph[1]==='II'?'II':'III';return;}
     const o=cauKey(l,P);if(!o)return;if(o.P==='II'&&P!=='II'&&o.k==null)o.P=P;cols.forEach(c=>datDA(codes,c.m,o,x[c.j]));});
