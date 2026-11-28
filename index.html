@@ -195,7 +195,7 @@ function centers(z){
  for(let r=0;r<g.rows;r++)for(let c=0;c<g.cols;c++)out.push({r,c,x:mx+(c-(g.cols-1)/2)*dx+(+g.colOffsets[c]||0)*g.w,y:my+(r-(g.rows-1)/2)*dy+(+g.rowOffsets[r]||0)*g.h,dx,dy});
  return out;
 }
-function grayAt(d,w,x,y){const k=(y*w+x)*4;return .299*d[k]+.587*d[k+1]+.114*d[k+2];}
+function grayAt(d,w,x,y){const k=(y*w+x)*4,r=d[k],g=d[k+1],b=d[k+2];if(r>g+55&&r>b+25)return 255;return .299*r+.587*g+.114*b;}  // nét in màu đỏ/hồng (phiếu Bộ) coi như nền giấy
 function detectMarker(data,w,h,ex,ey,rx,ry,maxW,maxH,thr){
  const x0=Math.max(0,Math.floor(ex-rx)),x1=Math.min(w-1,Math.ceil(ex+rx)),y0=Math.max(0,Math.floor(ey-ry)),y1=Math.min(h-1,Math.ceil(ey+ry));
  const rw=x1-x0+1,rh=y1-y0+1;if(rw<2||rh<2)return null;const seen=new Uint8Array(rw*rh),cand=[];
@@ -263,7 +263,7 @@ function zoneGrid(z,A,overlay){
 }
 /* Tự "hút" khung từng vùng vào đúng hàng ô (bù sai lệch nhỏ của mẫu phiếu / giấy cong khi chụp) */
 function inkAt(im,W,H,cx,cy,r,gray){const d=im.data;let dark=0,n=0;const x0=Math.max(0,Math.floor(cx-r)),x1=Math.min(W-1,Math.ceil(cx+r)),y0=Math.max(0,Math.floor(cy-r)),y1=Math.min(H-1,Math.ceil(cy+r));
- for(let y=y0;y<=y1;y+=2)for(let x=x0;x<=x1;x+=2){const dx=x-cx,dy=y-cy;if(dx*dx+dy*dy>r*r)continue;n++;const k=(y*W+x)*4;if(.299*d[k]+.587*d[k+1]+.114*d[k+2]<gray)dark++;}return n?dark/n:0;}
+ for(let y=y0;y<=y1;y+=2)for(let x=x0;x<=x1;x+=2){const dx=x-cx,dy=y-cy;if(dx*dx+dy*dy>r*r)continue;n++;const k=(y*W+x)*4;if(grayAt(d,W,x,y)<gray)dark++;}return n?dark/n:0;}
 var SNAP_N=3,SNAP_STEP=.12,SNAP_GAIN=1.08,SNAP_R=.4;
 function autoSnap(A){if(!A||!A.ok)return A;A.zoff=new Map();
  (S.prep.profile.zones||[]).forEach(z=>{if(['SBD','MA_DE','I','II','III'].indexOf(z.type)<0)return;const pts=centers(z);if(!pts.length)return;
@@ -459,7 +459,7 @@ function normalizeLight(cv){
  const bc=document.createElement('canvas');bc.width=W;bc.height=H;const bctx=bc.getContext('2d',{willReadFrequently:true});bctx.imageSmoothingEnabled=true;bctx.imageSmoothingQuality='high';bctx.drawImage(sm,0,0,W,H);
  const B=bctx.getImageData(0,0,W,H).data,octx=cv.getContext('2d',{willReadFrequently:true}),O=octx.getImageData(0,0,W,H),d=O.data;
  const out=document.createElement('canvas');out.width=W;out.height=H;const oc=out.getContext('2d',{willReadFrequently:true}),od=oc.createImageData(W,H);
- for(let k=0;k<d.length;k+=4){const gy=.299*d[k]+.587*d[k+1]+.114*d[k+2];let v=gy/B[k]*255;v=v>=255?255:v<0?0:v;od.data[k]=od.data[k+1]=od.data[k+2]=v;od.data[k+3]=255;}
+ for(let k=0;k<d.length;k+=4){const gy=(d[k]>d[k+1]+55&&d[k]>d[k+2]+25)?255:.299*d[k]+.587*d[k+1]+.114*d[k+2];let v=gy/B[k]*255;v=v>=255?255:v<0?0:v;od.data[k]=od.data[k+1]=od.data[k+2]=v;od.data[k+3]=255;}
  oc.putImageData(od,0,0);return out;
 }
 function alignScaled(cv,k){const rc=S.prep.recConfig||{},old=S.prep.recConfig;
